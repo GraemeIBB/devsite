@@ -1,0 +1,33 @@
+.console-base {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	position: fixed;
+	inset: 0;
+	z-index: 1;
+	background-color: rgba(0, 0, 0, 0.5);
+	backdrop-filter: blur(6px);
+	animation: console-in 300ms ease-out forwards;
+}
+
+@keyframes console-in {
+	from {
+		background-color: rgba(0, 0, 0, 0);
+		backdrop-filter: blur(0px);
+	}
+
+	to {
+		background-color: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(6px);
+	}
+}
+
+.console-base textarea {
+	resize: none;
+	outline: none;
+	width: 50%;
+	height: 50%;
+	background-color: black;
+	border-radius: 4px;
+	color: white;
+}

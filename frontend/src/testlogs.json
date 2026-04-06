@@ -1,0 +1,49 @@
+[
+  {
+    "name": "Project 1",
+    "href": "project1",
+    "logs": [
+      {
+        "logname": "Day 1",
+        "timestamp": "2026-03-020T01:23:45.678-10:00",
+        "content": [
+          {
+            "ctype": "text",
+            "body": "This is the first statement about the project! I've been working very hard :)"
+          },
+          {
+            "ctype": "image",
+            "key": "Screenshot from 2025-11-29 23-36-33.png",
+            "label": "test image"
+          }
+        ]
+      },
+      {
+        "logname": "Day 2",
+        "timestamp": "2026-03-022T02:34:56.789-10:00",
+        "content": [
+          {
+            "ctype": "text",
+            "body": "This is the second day! Lots more to say now..."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Project 2",
+    "href": "project2",
+    "logs": [
+      {
+        "logname": "First Log",
+        "timestamp": "time",
+        "content": [
+          {
+            "ctype": "text",
+            "body": "This is the first log of a second project"
+          }
+        ]
+      }
+    ]
+  }
+]
