@@ -15,9 +15,13 @@ function Stats() {
   const [, setTick] = useState(0)
 
   useEffect(() => {
-    fetch('http://localhost:5000/stats')
+    const fetchStats = () => fetch('http://localhost:5000/stats')
       .then(res => res.json())
       .then(data => setStats(data))
+
+    fetchStats()
+    const id = setInterval(fetchStats, 30000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
