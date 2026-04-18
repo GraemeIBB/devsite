@@ -5,6 +5,7 @@
     "logs": [
       {
         "logname": "Day 1",
+        "id": "dayone",
         "timestamp": "2026-03-020T01:23:45.678-10:00",
         "content": [
           {
@@ -15,16 +16,43 @@
             "ctype": "image",
             "key": "Screenshot from 2025-11-29 23-36-33.png",
             "label": "test image"
+          },
+          {
+            "ctype": "text",
+            "body": "The image above is an example photo taken from my screenshot library!"
           }
         ]
       },
       {
         "logname": "Day 2",
+        "id": "daytwo",
         "timestamp": "2026-03-022T02:34:56.789-10:00",
         "content": [
           {
             "ctype": "text",
             "body": "This is the second day! Lots more to say now..."
+          }
+        ]
+      },
+      {
+        "logname": "Day 3",
+        "id": "daythree",
+        "timestamp": "2026-03-022T02:34:56.789-10:00",
+        "content": [
+          {
+            "ctype": "text",
+            "body": "This is the third day! Good work still!"
+          }
+        ]
+      },
+      {
+        "logname": "Day 4",
+        "id": "dayfour",
+        "timestamp": "2026-03-022T02:34:56.789-10:00",
+        "content": [
+          {
+            "ctype": "text",
+            "body": "This is the forth day... Almost done!"
           }
         ]
       }
@@ -36,6 +64,7 @@
     "logs": [
       {
         "logname": "First Log",
+        "id": "dayone",
         "timestamp": "time",
         "content": [
           {
