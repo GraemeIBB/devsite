@@ -3,6 +3,8 @@ import json
 import time
 import requests
 
+from datetime import datetime, timezone
+
 STATS_FILE = os.path.join(os.path.dirname(__file__), "data", "stats.json")
 
 DEFAULT_STATS = {
@@ -11,9 +13,9 @@ DEFAULT_STATS = {
 }
 
 GH_QUERY = """
-query {
-  user(login: "graemeibb") {
-    contributionsCollection {
+query($login: String!, $from: DateTime!, $to: DateTime!) {
+  user(login: $login) {
+    contributionsCollection(from: $from, to: $to) {
       contributionCalendar {
         totalContributions
       }
@@ -21,6 +23,7 @@ query {
   }
 }
 """
+
 
 
 def load_stats():
@@ -42,7 +45,8 @@ def fetch_stats():
 
     try:
         lc = requests.get(
-            "https://alfa-leetcode-api.onrender.com/graemeibb/solved", timeout=10
+            f"https://alfa-leetcode-api.onrender.com/{os.getenv("LC_USER")}/solved",
+            timeout=10,
         ).json()
         new_solved = lc.get("solvedProblem", stats["leetcode"]["solvedProblem"])
         if new_solved != stats["leetcode"]["solvedProblem"]:
@@ -52,15 +56,7 @@ def fetch_stats():
         pass
 
     try:
-        gh = requests.post(
-            "https://api.github.com/graphql",
-            json={"query": GH_QUERY},
-            headers={"Authorization": f"Bearer {os.getenv('GH_TOKEN')}"},
-            timeout=10,
-        ).json()
-        new_contributions = gh["data"]["user"]["contributionsCollection"][
-            "contributionCalendar"
-        ]["totalContributions"]
+        new_contributions = fetch_github_contributions(os.getenv("GH_TOKEN"))
         if new_contributions != stats["github"]["totalContributions"]:
             stats["github"]["totalContributions"] = new_contributions
             stats["github"]["timestamp"] = int(time.time())
@@ -68,3 +64,23 @@ def fetch_stats():
         pass
 
     save_stats(stats)
+
+def fetch_github_contributions(token):
+    current_year = datetime.now(timezone.utc).year
+    total = 0
+    for year in range(int(os.getenv("START_YEAR")), current_year + 1):
+        variables = {
+            "login": os.getenv("GH_USER"),
+            "from": f"{year}-01-01T00:00:00Z",
+            "to":   f"{year}-12-31T23:59:59Z",
+        }
+        gh = requests.post(
+            "https://api.github.com/graphql",
+            json={"query": GH_QUERY, "variables": variables},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        ).json()
+        total += gh["data"]["user"]["contributionsCollection"][
+            "contributionCalendar"
+        ]["totalContributions"]
+    return total

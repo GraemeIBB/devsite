@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import './Stats.css'
 
-const socket = io('http://localhost:5000')
-
 function elapsed(timestamp) {
   const secs = Math.max(0, Math.floor(Date.now() / 1000) - timestamp)
   const d = Math.floor(secs / 86400)
@@ -35,21 +33,36 @@ function Stats() {
   }, [])
 
   useEffect(() => {
+    const socket = io('http://localhost:5000')
     socket.on('crashout_update', (data) => setCrashout(data.minutes))
-    return () => socket.off('crashout_update')
+    return () => socket.disconnect()
   }, [])
 
   if (!stats) return null
 
+  const minuteAngle = crashout !== null ? -(crashout / 60) * 360 : null
+  const hourAngle = minuteAngle !== null ? minuteAngle / 12 : null
+
   return (
-	<div>
-	<p>{elapsed(stats.leetcode.timestamp)} since last solve @ {stats.leetcode.solvedProblem} LC problems solved</p>
-	<p>{elapsed(stats.github.timestamp)} since last push @ {stats.github.totalContributions} GitHub contributions</p>
-    <div className='crashclock'>
-      {crashout !== null && (
-        <p><strong>{crashout} minutes til crashout</strong></p>
-      )}
-    </div>
+    <div className='stats'>
+      <div className='left'>
+        <p>{elapsed(stats.leetcode.timestamp)} since last solve @ {stats.leetcode.solvedProblem} LC problems solved</p>
+        <p>{elapsed(stats.github.timestamp)} since last push @ {stats.github.totalContributions} GitHub contributions</p>
+      </div>
+      <div className='crashclock'>
+        <div className='clock-wrapper'>
+          <img className='clock' src='/clock.png' alt='clock' />
+          {minuteAngle !== null && (
+            <>
+			  <div className='hand hour-hand' style={{ transform: `rotate(${hourAngle}deg)` }} />
+              <div className='hand minute-hand' style={{ transform: `rotate(${minuteAngle}deg)` }} /> 
+            </>
+          )}
+        </div>
+        {crashout !== null && (
+          <p>{crashout} minutes til crashout</p>
+        )}
+      </div>
     </div>
   )
 }
