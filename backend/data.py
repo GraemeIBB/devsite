@@ -25,7 +25,6 @@ query($login: String!, $from: DateTime!, $to: DateTime!) {
 """
 
 
-
 def load_stats():
     try:
         with open(STATS_FILE) as f:
@@ -65,14 +64,15 @@ def fetch_stats():
 
     save_stats(stats)
 
+
 def fetch_github_contributions(token):
     current_year = datetime.now(timezone.utc).year
     total = 0
-    for year in range(int(os.getenv("START_YEAR")), current_year + 1):
+    for year in range(int(os.getenv("GH_STARTYEAR")), current_year + 1):
         variables = {
             "login": os.getenv("GH_USER"),
             "from": f"{year}-01-01T00:00:00Z",
-            "to":   f"{year}-12-31T23:59:59Z",
+            "to": f"{year}-12-31T23:59:59Z",
         }
         gh = requests.post(
             "https://api.github.com/graphql",
@@ -80,7 +80,7 @@ def fetch_github_contributions(token):
             headers={"Authorization": f"Bearer {token}"},
             timeout=10,
         ).json()
-        total += gh["data"]["user"]["contributionsCollection"][
-            "contributionCalendar"
-        ]["totalContributions"]
+        total += gh["data"]["user"]["contributionsCollection"]["contributionCalendar"][
+            "totalContributions"
+        ]
     return total
