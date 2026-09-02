@@ -18,6 +18,14 @@ function Home() {
 	// Seamless transition to sub topics would be ideal
 	//
 	// Decide on systems to uniformly show topics + instill a usage familiarity
+	//
+		//
+		//
+		// Inspiration was portal : confety and portals
+	//
+		// Fers fire spread
+	// AUV
+	// Hackathons
 	return (
 		<p>Home</p>
 	)
