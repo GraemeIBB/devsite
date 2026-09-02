@@ -5,6 +5,22 @@ export const FONT = '/fonts/helvetiker_bold.typeface.json'
 
 export const BASE = 1.5 // GRAEME letter size
 export const WORD = [...'GRAEME']
+
+// portrait (window taller than wide): GRAEME can't fit inline, so it drops in
+// as two rows — GRA above EME. GRA spawns higher so it lands on top.
+export const PORTRAIT = Object.freeze({
+	split: 3, // GRAEME -> 'GRA' | 'EME'
+	spacing: 1.7, // x gap between letters within a row
+	rows: [12, 8], // spawn y for [GRA, EME]
+	spawnHalfWidth: 3, // confetti x-spawn range, ± this
+})
+
+// landscape spawn: single inline row
+export const LANDSCAPE = Object.freeze({
+	spacing: 2.6,
+	y: 2.5,
+	spawnHalfWidth: 7,
+})
 // chars the helvetiker_bold typeface actually has glyphs for
 export const POOL = 'GRAEMEDEVLOG0123456789.,:;+-=*/#!?()'
 

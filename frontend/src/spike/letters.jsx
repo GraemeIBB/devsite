@@ -4,7 +4,7 @@ import { useFont } from '@react-three/drei'
 import { TextGeometry } from 'three-stdlib'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import { SURFACE_SOLID, SURFACE_TWO_TONE } from './asciiShader'
-import { BASE, FONT, HALF, POOL, SHADING, TIERS, WORD } from './config'
+import { BASE, FONT, HALF, LANDSCAPE, POOL, PORTRAIT, SHADING, TIERS, WORD } from './config'
 import { grab, hoverCursor } from './drag'
 
 // ---- geometry cache ---------------------------------------------------
@@ -77,32 +77,61 @@ function Letter({ font, char, factor, shading, position, spin, ccd, grabbable })
 }
 
 // ---- scene content -------------------------------------------------
-const CONFETTI = TIERS.flatMap(({ factor, count, shading, ccd, grabbable }) =>
-	Array.from({ length: count }, () => ({
-		char: POOL[(Math.random() * POOL.length) | 0],
-		factor,
-		shading,
-		ccd,
-		grabbable,
-		position: [-7 + Math.random() * 14, 5 + Math.random() * 9],
-		spin: (Math.random() - 0.5) * Math.PI,
-	})),
-)
+function confetti(spawnHalfWidth) {
+	return TIERS.flatMap(({ factor, count, shading, ccd, grabbable }) =>
+		Array.from({ length: count }, () => ({
+			char: POOL[(Math.random() * POOL.length) | 0],
+			factor,
+			shading,
+			ccd,
+			grabbable,
+			position: [
+				(Math.random() * 2 - 1) * spawnHalfWidth,
+				5 + Math.random() * 9,
+			],
+			spin: (Math.random() - 0.5) * Math.PI,
+		})),
+	)
+}
 
-const LETTERS = [
-	...WORD.map((char, i) => ({
-		char,
-		factor: 1,
-		shading: SHADING.TWO_TONE,
-		ccd: true,
-		grabbable: true,
-		position: [-6.5 + i * 2.6, 2.5],
-		spin: 0,
-	})),
-	...CONFETTI,
-]
+const bigLetter = (char, position) => ({
+	char,
+	factor: 1,
+	shading: SHADING.TWO_TONE,
+	ccd: true,
+	grabbable: true,
+	position,
+	spin: 0,
+})
 
-export function Letters() {
+// landscape: GRAEME inline. portrait: 'GRA' row spawned above 'EME' row so the
+// word drops in stacked and still fits a narrow window.
+function graeme(portrait) {
+	if (!portrait) {
+		return WORD.map((char, i) =>
+			bigLetter(char, [-6.5 + i * LANDSCAPE.spacing, LANDSCAPE.y]),
+		)
+	}
+	const { split, spacing, rows } = PORTRAIT
+	return [WORD.slice(0, split), WORD.slice(split)].flatMap((row, r) =>
+		row.map((char, j) =>
+			bigLetter(char, [(j - (row.length - 1) / 2) * spacing, rows[r]]),
+		),
+	)
+}
+
+const CONFETTI = false // spike toggle — off while dialing in the GRAEME layout
+
+function buildLetters(portrait) {
+	const cfg = portrait ? PORTRAIT : LANDSCAPE
+	return [
+		...graeme(portrait),
+		...(CONFETTI ? confetti(cfg.spawnHalfWidth) : []),
+	]
+}
+
+export function Letters({ portrait = false }) {
 	const font = useFont(FONT)
-	return LETTERS.map((item, i) => <Letter key={i} font={font} {...item} />)
+	const letters = useMemo(() => buildLetters(portrait), [portrait])
+	return letters.map((item, i) => <Letter key={i} font={font} {...item} />)
 }

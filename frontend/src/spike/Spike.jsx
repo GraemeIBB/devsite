@@ -4,7 +4,7 @@ import { Effects } from '@react-three/drei'
 import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier'
 import { makeAsciiShader } from './asciiShader'
 import { Letters } from './letters'
-import { Auv } from './auv'
+// import { Auv } from './auv'
 import { DragController } from './drag'
 import { ASCII, PHYSICS, PIT } from './config'
 
@@ -16,15 +16,46 @@ function Pit() {
 	))
 }
 
-function Scene() {
+function Scene({ portrait }) {
 	return (
 		<Physics gravity={PHYSICS.gravity}>
 			<DragController />
-			<Letters />
-			<Auv />
+			<Letters portrait={portrait} />
+			{/* <Auv /> */}
 			<Pit />
 		</Physics>
 	)
+}
+
+// window size + orientation. portrait = taller than wide; a flip rebuilds the
+// physics scene (below) so GRAEME re-spawns in the layout that fits.
+function useViewport() {
+	const [vp, setVp] = useState(() => ({
+		w: window.innerWidth,
+		h: window.innerHeight,
+		portrait: window.innerHeight > window.innerWidth,
+	}))
+	useEffect(() => {
+		let raf = 0
+		const onResize = () => {
+			cancelAnimationFrame(raf)
+			raf = requestAnimationFrame(() =>
+				setVp({
+					w: window.innerWidth,
+					h: window.innerHeight,
+					portrait: window.innerHeight > window.innerWidth,
+				}),
+			)
+		}
+		window.addEventListener('resize', onResize)
+		window.addEventListener('orientationchange', onResize)
+		return () => {
+			cancelAnimationFrame(raf)
+			window.removeEventListener('resize', onResize)
+			window.removeEventListener('orientationchange', onResize)
+		}
+	}, [])
+	return vp
 }
 
 // full-screen ascii pass: reads the world-normal G-buffer, shades it against
@@ -53,15 +84,22 @@ function AsciiEffects() {
 }
 
 export default function Spike() {
+	const { w, h, portrait } = useViewport()
 	return (
 		<div style={{ position: 'fixed', inset: 0, background: '#000' }}>
 			<Canvas
+				// canvas locked to the window box; r3f drives the drawing-buffer
+				// off these, not the parent's computed size.
+				style={{ width: w, height: h }}
+				resize={{ scroll: false }}
 				camera={{ position: [0, 0, 13], fov: 45 }}
 				dpr={[1, 2]}
 				onCreated={({ gl }) => gl.setClearAlpha(0)}
 			>
 				<Suspense fallback={null}>
-					<Scene />
+					{/* key flips on orientation change -> physics world + letter
+					    layout rebuild from scratch */}
+					<Scene key={portrait ? 'portrait' : 'landscape'} portrait={portrait} />
 				</Suspense>
 				<AsciiEffects />
 			</Canvas>
