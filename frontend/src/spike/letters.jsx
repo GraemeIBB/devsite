@@ -1,11 +1,9 @@
-import { useMemo, useRef } from 'react'
-import * as THREE from 'three'
+import { useMemo } from 'react'
 import { useFont } from '@react-three/drei'
 import { TextGeometry } from 'three-stdlib'
-import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import { SURFACE_SOLID, SURFACE_TWO_TONE } from './asciiShader'
 import { BASE, FONT, HALF, LANDSCAPE, POOL, PORTRAIT, SHADING, TIERS, WORD } from './config'
-import { grab, hoverCursor } from './drag'
+import SceneObject from './SceneObject'
 
 // ---- geometry cache ---------------------------------------------------
 // one TextGeometry per (char, factor); shared across letters and reused
@@ -33,46 +31,31 @@ function letterGeometry(font, char, factor) {
 	return g
 }
 
-const HITBOX = new THREE.BoxGeometry(1, 1, 1)
-const HIT_MAT = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
 const MATERIAL = { [SHADING.TWO_TONE]: SURFACE_TWO_TONE, [SHADING.SOLID]: SURFACE_SOLID }
 
 // ---- letter ----------------------------------------------------------
+// a letter is a SceneObject with a cached TextGeometry for its visual mesh.
 function Letter({ font, char, factor, shading, position, spin, ccd, grabbable }) {
-	const body = useRef()
 	const geometry = useMemo(
 		() => letterGeometry(font, char, factor),
 		[font, char, factor],
 	)
-	const half = useMemo(() => HALF.map((h) => h * factor), [factor])
+	const collider = useMemo(
+		() => ({ shape: 'cuboid', half: HALF.map((h) => h * factor) }),
+		[factor],
+	)
 
 	return (
-		<RigidBody
-			ref={body}
-			position={[position[0], position[1], 0]}
-			rotation={[0, 0, spin]}
-			colliders={false}
+		<SceneObject
+			collider={collider}
+			position={position}
+			spin={spin}
 			ccd={ccd}
-			enabledTranslations={[true, true, false]}
-			enabledRotations={[false, false, true]}
-			restitution={0.15}
-			friction={0.8}
-			linearDamping={0.3}
-			angularDamping={0.6}
+			grabbable={grabbable}
 		>
-			<CuboidCollider args={half} />
-			{/* invisible box hit-box. pointer handlers only on grabbable tiers.
-			    dispose={null}: geometry + material are shared, don't free on unmount */}
-			<mesh
-				geometry={HITBOX}
-				material={HIT_MAT}
-				scale={[half[0] * 2, half[1] * 2, half[2] * 2]}
-				dispose={null}
-				onPointerDown={grabbable ? (e) => grab(e, body.current) : undefined}
-				{...(grabbable ? hoverCursor : null)}
-			/>
+			{/* dispose={null}: geometry + material are shared, don't free on unmount */}
 			<mesh geometry={geometry} material={MATERIAL[shading]} dispose={null} />
-		</RigidBody>
+		</SceneObject>
 	)
 }
 

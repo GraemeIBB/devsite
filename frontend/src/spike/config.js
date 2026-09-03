@@ -8,17 +8,19 @@ export const WORD = [...'GRAEME']
 
 // portrait (window taller than wide): GRAEME can't fit inline, so it drops in
 // as two rows — GRA above EME. GRA spawns higher so it lands on top.
+// spawn y values sit above the top of the view (~5.4 at the default camera) so
+// every letter drops in from off-frame.
 export const PORTRAIT = Object.freeze({
 	split: 3, // GRAEME -> 'GRA' | 'EME'
 	spacing: 1.7, // x gap between letters within a row
-	rows: [12, 8], // spawn y for [GRA, EME]
+	rows: [16, 12], // spawn y for [GRA, EME] — GRA higher so it lands on top
 	spawnHalfWidth: 3, // confetti x-spawn range, ± this
 })
 
 // landscape spawn: single inline row
 export const LANDSCAPE = Object.freeze({
 	spacing: 2.6,
-	y: 2.5,
+	y: 9,
 	spawnHalfWidth: 7,
 })
 // chars the helvetiker_bold typeface actually has glyphs for
@@ -43,6 +45,19 @@ export const TIERS = Object.freeze([
 
 export const PHYSICS = { gravity: [0, -14, 0] }
 
+// staged instantiation: things spawn in levels, `STAGE_MS` apart, so an earlier
+// level settles before the next drops in and disturbs it. level 0 = GRAEME
+// (immediate); logos / buttons default to level 1. see Staged.jsx
+export const STAGE_MS = 1100
+
+// shared rigid-body feel for every SceneObject (letters, logos, buttons).
+export const BODY = Object.freeze({
+	restitution: 0.15,
+	friction: 0.8,
+	linearDamping: 0.3,
+	angularDamping: 0.6,
+})
+
 // low-poly ogopogo (okmr_stonefish ogopogo.scn), thrown in like the letters.
 // per-part colours are the scn <look> values (simple.scn <looks> block).
 export const AUV = {
@@ -58,12 +73,22 @@ export const AUV = {
 	},
 }
 
-// pit that keeps letters on screen — CuboidCollider half-extents
-export const PIT = [
-	{ position: [0, -5, 0], args: [12, 2, 3] },
-	{ position: [-8.5, 0, 0], args: [0.5, 8, 3] },
-	{ position: [8.5, 0, 0], args: [0.5, 8, 3] },
-]
+// pit that keeps letters on screen — CuboidCollider half-extents.
+// floor is fixed; side walls track the visible width (see Pit in Spike.jsx):
+// landscape parks them at ±wallX, portrait snaps them to the window edges.
+export const PIT = Object.freeze({
+	floor: { position: [0, -5, 0], args: [12, 2, 3] },
+	wallX: 8.5, // |x| of each side wall in landscape
+	wallHalf: [0.5, 30, 3], // clears the off-frame spawn height + scroll range
+})
+
+// perspective camera
+export const CAMERA = Object.freeze({ z: 13, fov: 45 })
+
+// shared extrude depth for non-letter scene objects (logos, buttons).
+// matches GRAEME's extrusion at BASE so the two-tone sun reads the same on
+// everything. per-object override via descriptor.depth. see objects/README.md
+export const DEPTH = 0.9
 
 // pointer-drag spring
 export const DRAG = { stiff: 90, damp: 12, maxImpulse: 8 }

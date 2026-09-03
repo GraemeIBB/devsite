@@ -29,6 +29,28 @@ export const hoverCursor = {
 	onPointerOut: () => !held && (document.body.style.cursor = ''),
 }
 
+// grab + fling always; if the pointer barely moved between down and up it was a
+// tap, so also fire onClick. onClick omitted -> plain grab.
+const CLICK_SLOP = 6 // px
+const CLICK_MS = 350
+
+export function grabOrClick(e, body, onClick) {
+	grab(e, body)
+	if (!onClick) return
+	const { clientX: x0, clientY: y0 } = e.nativeEvent
+	const t0 = performance.now()
+	const up = (ev) => {
+		window.removeEventListener('pointerup', up)
+		if (
+			Math.hypot(ev.clientX - x0, ev.clientY - y0) <= CLICK_SLOP &&
+			performance.now() - t0 <= CLICK_MS
+		) {
+			onClick()
+		}
+	}
+	window.addEventListener('pointerup', up)
+}
+
 export function DragController() {
 	const { camera, raycaster, pointer } = useThree()
 

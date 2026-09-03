@@ -34,11 +34,17 @@ export function makeGlyphAtlas(chars = ' .:-=+*#%@', cellPx = 16) {
 //   1.0  two-tone: shaded against the sun         (rgb = encoded normal)
 const VERT = /* glsl */ `
 	varying vec3 vWN;
+	varying vec3 vVN;
 	void main() {
 		vWN = normalize(mat3(modelMatrix) * normal);
+		vVN = normalize(normalMatrix * normal); // view-space: .z ~ 1 faces camera
 		gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 	}
 `
+
+// how much darker an extruded side face is vs the camera-facing cap, in the
+// flat-colour materials (surfaceColor). the two-tone material has its own ramp.
+const SIDE_MUL = 0.62
 
 function normalMaterial(flag) {
 	return new THREE.ShaderMaterial({
@@ -55,7 +61,9 @@ function normalMaterial(flag) {
 export const SURFACE_TWO_TONE = normalMaterial(1.0)
 export const SURFACE_SOLID = normalMaterial(0.33)
 
-// flat unshaded colour, one shared instance per hex
+// flat colour, one shared instance per hex. the cap keeps the colour; extruded
+// side faces are darkened by SIDE_MUL so the depth reads. still "flat" to the
+// ascii pass (alpha 0.66) — the shading is baked into rgb here.
 const colorCache = new Map()
 export function surfaceColor(hex) {
 	let m = colorCache.get(hex)
@@ -64,8 +72,11 @@ export function surfaceColor(hex) {
 		m = new THREE.ShaderMaterial({
 			vertexShader: VERT,
 			fragmentShader: /* glsl */ `
+				varying vec3 vVN;
 				void main() {
-					gl_FragColor = vec4(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)}, 0.66);
+					vec3 base = vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)});
+					float f = smoothstep(0.35, 0.8, vVN.z); // 1 = cap, 0 = side
+					gl_FragColor = vec4(base * mix(${SIDE_MUL.toFixed(2)}, 1.0, f), 0.66);
 				}
 			`,
 		})
