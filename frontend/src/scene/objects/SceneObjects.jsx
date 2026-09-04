@@ -28,16 +28,21 @@ const navTo = (to, navigate) =>
 // ---- svg objects --------------------------------------------------------
 const cache = new Map() // src|depth|shading -> { meshes, norm, center }
 
-function build(paths, depth, twoTone) {
+function build(paths, depth, twoTone, edge) {
 	const meshes = []
 	const bbox = new THREE.Box3()
+	// `edge`: extrude side walls (ExtrudeGeometry group 1) render this hex
+	// (still cap/side-shaded by surfaceColor) instead of their own path's fill —
+	// so the object's depth reads as one colour, not e.g. shaded white.
+	const sideMat = edge ? surfaceColor(edge) : null
 	let layer = 0 // later paths sit slightly in front so overlapping fills (e.g.
 	              // white lettering on a coloured tile) don't z-fight
 	for (const p of paths) {
 		if (p.userData?.style?.fill === 'none') continue // skip decoy bg rects
-		const mat = twoTone
+		const cap = twoTone
 			? SURFACE_TWO_TONE
 			: surfaceColor('#' + p.color.getHexString())
+		const mat = sideMat ? [cap, sideMat] : cap // [caps, walls]
 		const z = -depth / 2 + layer++ * depth * 0.05
 		for (const shape of SVGLoader.createShapes(p)) {
 			const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false })
@@ -61,14 +66,14 @@ function SvgObject({ d, navigate }) {
 	const released = useStaged(d.level ?? 1) // drop in after GRAEME (level 0) settles
 
 	const { meshes, norm, center } = useMemo(() => {
-		const key = `${d.src}|${depth}|${d.shading ?? 'flat'}`
+		const key = `${d.src}|${depth}|${d.shading ?? 'flat'}|${d.edge ?? ''}`
 		let v = cache.get(key)
 		if (!v) {
-			v = build(data.paths, depth, d.shading === 'two-tone')
+			v = build(data.paths, depth, d.shading === 'two-tone', d.edge)
 			cache.set(key, v)
 		}
 		return v
-	}, [data, d.src, depth, d.shading])
+	}, [data, d.src, depth, d.shading, d.edge])
 
 	const s = d.scale ?? 1
 
