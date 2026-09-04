@@ -9,7 +9,9 @@ import { Pit } from './pit'
 import ClearWatch from './ClearWatch'
 import { PAGES, WordScene, SCENE_BOUNDS } from './pages'
 import { useSceneTransition } from './transition'
-import { ASCII, CAMERA, PHYSICS } from './config'
+import { ASCII, CAMERA, PHYSICS, okmrRightX, visibleHalfHeight, visibleHalfWidth } from './config'
+import { getAuvX } from './auvTrack'
+import { getWaterSurfaceY } from './waterLevel'
 
 // window size + orientation. a portrait<->landscape flip remounts the active
 // page (below) so its letters re-lay for the new aspect.
@@ -56,7 +58,14 @@ function AsciiEffects() {
 
 	useFrame(() => {
 		const u = pass.current?.uniforms
-		if (u) camera.getWorldDirection(u.uSunDir.value)
+		if (!u) return
+		camera.getWorldDirection(u.uSunDir.value)
+		// waterline, in screen-space v (0 bottom -> 1 top): where the okmr water
+		// surface (world y, tracked live in waterLevel.js) projects to at z=0 —
+		// the actor plane every submerged thing (AUV, gate, letters) sits near.
+		// off-okmr this is -Infinity (waterLevel.js's default), so the compare
+		// below never trips and the tint is a no-op elsewhere.
+		u.uWaterLineV.value = 0.5 + getWaterSurfaceY() / (2 * visibleHalfHeight())
 	})
 
 	return (
@@ -65,6 +74,23 @@ function AsciiEffects() {
 			<shaderPass ref={pass} args={[shader]} />
 		</Effects>
 	)
+}
+
+// okmr's camera pan: starts at x=0 (its leftmost position, same as every other
+// scene) and eases toward the AUV's tracked x, clamped to [0, rightBound] —
+// rightBound puts the level's right edge (okmrRightX) at the screen's right
+// edge, matching how the (removed) right wall used to cap the view. once
+// pinned at either end the AUV keeps moving under the clamp, sliding toward
+// that side of the screen instead of staying centred. eases back to 0 outside
+// okmr (`active` false) so other scenes render centred as before.
+function CameraRig({ active }) {
+	useFrame((state, delta) => {
+		const { camera, size } = state
+		const rightBound = Math.max(0, okmrRightX(size) - visibleHalfWidth(size))
+		const target = active ? Math.min(Math.max(getAuvX(), 0), rightBound) : 0
+		camera.position.x += (target - camera.position.x) * Math.min(1, delta * CAMERA.followLerp)
+	})
+	return null
 }
 
 function PageScene({ path, portrait, navigate }) {
@@ -117,6 +143,7 @@ export default function SceneCanvas() {
 						clear={clear}
 					/>
 				</Suspense>
+				<CameraRig active={shownPath === '/okmr'} />
 				<AsciiEffects />
 			</Canvas>
 		</div>

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BoundLetters } from '../boundLetters'
 import { Auv } from '../auv'
+import { Gate } from '../gate'
 import { Water } from '../water'
 import { setWaterLevel } from '../waterLevel'
 import SceneObjects from '../objects/SceneObjects'
@@ -23,6 +24,7 @@ export default function OkmrScene({ portrait, navigate }) {
 			<Water />
 			<BoundLetters word="OKMR" portrait={portrait} level={2} />
 			<Auv level={2} />
+			<Gate />
 			<SceneObjects items={[okmrBack]} navigate={navigate} />
 		</>
 	)

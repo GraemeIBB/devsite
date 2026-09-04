@@ -6,6 +6,8 @@ import { AUV } from './config'
 import { grab, hoverCursor } from './drag'
 import { pid } from './pid'
 import { useStaged } from './useStaged'
+import { getWaterSurfaceY } from './waterLevel'
+import { setAuvX } from './auvTrack'
 
 const NO_BUOYANCY = { noBuoyancy: true } // water.jsx skips this body — the AUV flies itself
 
@@ -100,6 +102,16 @@ export function Auv({ level = 0 }) {
 	useFrame((_, delta) => {
 		const rb = body.current
 		if (!rb || !released || !rb.isDynamic()) return
+		setAuvX(rb.translation().x) // camera rig follow target (SceneCanvas) — track even out of water/falling
+
+		// no water, no control — same as a real thruster losing its medium. covers
+		// the okmr drain exit for free (surface sinks out from under it) and lets
+		// the player fly it out of the water and just fall.
+		if (rb.translation().y >= getWaterSurfaceY()) {
+			depthPid.reset()
+			return
+		}
+
 		const dt = Math.min(delta, AUV.ctl.dtMax)
 		const k = keys.current
 		const m = rb.mass() || 1

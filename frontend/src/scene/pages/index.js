@@ -3,7 +3,7 @@ import ProjectsScene from './ProjectsScene'
 import WordScene from './WordScene'
 import OkmrScene from './OkmrScene'
 import drain from '../exits/drain'
-import { Walls } from '../pit'
+import { OkmrWalls } from '../pit'
 
 // path -> scene component ({ path, portrait, navigate }). routes not listed fall
 // back to WordScene. add a designed page by dropping a file here + one entry.
@@ -19,10 +19,10 @@ export const SCENE_EXIT = {
 	'/okmr': drain,
 }
 
-// scenes that replace the default <Pit> bounds. okmr's water brings its own sea
-// floor, so it wants side walls only (a pit floor would sit above the water).
+// scenes that replace the default <Pit> bounds. okmr's water brings its own
+// sea floor (no pit floor) and only a left wall — see pit.jsx's OkmrWalls.
 export const SCENE_BOUNDS = {
-	'/okmr': Walls,
+	'/okmr': OkmrWalls,
 }
 
 export { WordScene }

@@ -1,9 +1,9 @@
 import { useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, useRapier } from '@react-three/rapier'
-import { surfaceColor } from './asciiShader'
-import { OKMR, PIT, visibleHalfHeight } from './config'
-import { getWaterLevel } from './waterLevel'
+import { surfaceColor, surfaceColorSide } from './asciiShader'
+import { GATE, OKMR, OKMR_BLEED, PIT, okmrLeftX, okmrRightX, visibleHalfHeight } from './config'
+import { getWaterLevel, setWaterSurfaceY } from './waterLevel'
 
 // the okmr body of water: a flat-shaded slab (#03b787) with a kinematic
 // sea-floor collider at its base. both track the shared 0..1 level (waterLevel.js)
@@ -14,17 +14,33 @@ import { getWaterLevel } from './waterLevel'
 
 const REST_MID = OKMR.surfaceY - OKMR.depth / 2
 const FLOOR_CENTER = OKMR.surfaceY - OKMR.depth - OKMR.floorHalfH
+// waterline lip: a thin strip at the slab's top edge, forced to the SIDE_MUL
+// tone (see surfaceColorSide) — the top face itself is edge-on to this camera
+// and never visible, so this stands in for it and gives the surface a shaded,
+// raised-looking edge instead of reading as flat.
+const LIP_H = 0.3
 // sit the slab behind the z=0 actor plane so letters / the AUV render in front
-// of the water, not occluded by it (the ascii pass has no alpha blend)
-const SLAB_Z = -OKMR.slabZ / 2 - 0.5
+// of the water, not occluded by it (the ascii pass has no alpha blend). the
+// gate's two posts straddle z=0 (gate.jsx — the AUV's z is locked there), so
+// the slab's front face has to clear the far post too, not just z=0.
+const GATE_FAR_Z = 1.55 * GATE.scale // far post centre + its own half-thickness
+const SLAB_Z = -OKMR.slabZ / 2 - Math.max(0.5, GATE_FAR_Z + 0.5)
 
 export function Water() {
 	const { world } = useRapier()
+	const size = useThree((s) => s.size)
 	const slab = useRef()
 	const floor = useRef()
 	const lvl = useRef(0)
 	// travel from "surface one unit below the frame" up to the rest pose
 	const rise = visibleHalfHeight() + 1 + OKMR.surfaceY
+
+	// spans the whole level (okmrLeftX -> okmrRightX), bleeding past both ends
+	// same as the old fixed-width slab did past the single-screen walls
+	const left = okmrLeftX() - OKMR_BLEED
+	const right = okmrRightX(size) + OKMR_BLEED
+	const width = right - left
+	const centerX = (left + right) / 2
 
 	useFrame((_, dt) => {
 		lvl.current +=
@@ -32,7 +48,7 @@ export function Water() {
 		const dy = (lvl.current - 1) * rise
 		if (slab.current) slab.current.position.y = REST_MID + dy
 		floor.current?.setNextKinematicTranslation({
-			x: 0,
+			x: centerX,
 			y: FLOOR_CENTER + dy,
 			z: 0,
 		})
@@ -42,6 +58,7 @@ export function Water() {
 		// so it's size-independent. drains away with the surface on exit. applied
 		// `buoyPoint` above the body origin so bodies float roughly upright.
 		const surf = OKMR.surfaceY + dy
+		setWaterSurfaceY(surf)
 		world.forEachRigidBody((b) => {
 			if (!b.isDynamic() || b.userData?.noBuoyancy) return
 			const t = b.translation()
@@ -61,20 +78,32 @@ export function Water() {
 		<>
 			<mesh
 				ref={slab}
-				position={[0, REST_MID - rise, SLAB_Z]}
+				position={[centerX, REST_MID - rise, SLAB_Z]}
 				material={surfaceColor(OKMR.color)}
 				dispose={null}
 			>
-				<boxGeometry args={[OKMR.width, OKMR.depth, OKMR.slabZ]} />
+				<boxGeometry args={[width, OKMR.depth, OKMR.slabZ]} />
+				<mesh
+					material={surfaceColorSide(OKMR.color)}
+					position={[0, OKMR.depth / 2 - LIP_H / 2, 0.05]}
+					dispose={null}
+				>
+					<boxGeometry args={[width, LIP_H, OKMR.slabZ]} />
+				</mesh>
 			</mesh>
 			<RigidBody
 				ref={floor}
 				type="kinematicPosition"
 				colliders={false}
-				position={[0, FLOOR_CENTER - rise, 0]}
+				position={[centerX, FLOOR_CENTER - rise, 0]}
 				friction={0.8}
 			>
-				<CuboidCollider args={[OKMR.width / 2, OKMR.floorHalfH, PIT.floor.halfD]} />
+				<CuboidCollider args={[width / 2, OKMR.floorHalfH, PIT.floor.halfD]} />
+				<mesh material={surfaceColor(OKMR.floorColor)} dispose={null}>
+					<boxGeometry
+						args={[width, OKMR.floorHalfH * 2, PIT.floor.halfD * 2]}
+					/>
+				</mesh>
 			</RigidBody>
 		</>
 	)

@@ -116,7 +116,8 @@ export function BoundLetters({ word = 'OKMR', portrait = false, level = 2 }) {
 
 	const factor = portrait ? 0.6 : 1
 	const inner = playHalfWidth(size, portrait)
-	const gap = Math.min(portrait ? 1.9 : 2.8, (2 * (inner - 0.8)) / n)
+	const bias = portrait ? 0 : OKMR.letterBiasX // keep the word centred on narrow/portrait screens
+	const gap = Math.min(portrait ? 1.9 : 2.8, (2 * (inner - 0.8 - bias)) / n)
 	const anchorY = OKMR.surfaceY - OKMR.depth // sea-floor top
 
 	return chars.map((char, i) => (
@@ -125,7 +126,7 @@ export function BoundLetters({ word = 'OKMR', portrait = false, level = 2 }) {
 			font={font}
 			char={char}
 			factor={factor}
-			x={(i - (n - 1) / 2) * gap}
+			x={(i - (n - 1) / 2) * gap + bias}
 			anchorY={anchorY}
 			chainLen={OKMR.chain}
 			frozen={!released}

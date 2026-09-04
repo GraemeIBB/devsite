@@ -48,6 +48,14 @@ export function Walls({ portrait }) {
 	)
 }
 
+// okmr's bounds: left wall only — the level runs several screens wide to the
+// right with nothing to stop the AUV (SceneCanvas' CameraRig pins the camera
+// at the far edge instead; see okmrRightX in config.js). used both for the
+// scene itself (pages/index SCENE_BOUNDS) and its drain exit.
+export function OkmrWalls({ portrait }) {
+	return <Wall side={-1} portrait={portrait} />
+}
+
 // the complete idle bounds. flags let an exit reuse it with pieces missing.
 export function Pit({ portrait, floor = true, walls = true }) {
 	return (

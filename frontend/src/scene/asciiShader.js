@@ -1,29 +1,31 @@
-import * as THREE from 'three'
+import * as THREE from "three";
 
 // ---- glyph atlas -----------------------------------------------------------
 // luminance ramp of monospace chars in a horizontal strip.
 // index 0 = darkest (space), last = brightest (@). NearestFilter, no mips.
-export function makeGlyphAtlas(chars = ' .:-=+*#%@', cellPx = 16) {
-	const n = chars.length
-	const cvs = document.createElement('canvas')
-	cvs.width = cellPx * n
-	cvs.height = cellPx
-	const ctx = cvs.getContext('2d')
-	ctx.fillStyle = '#000'
-	ctx.fillRect(0, 0, cvs.width, cvs.height)
-	ctx.fillStyle = '#fff'
-	ctx.font = `${cellPx}px monospace`
-	ctx.textAlign = 'center'
-	ctx.textBaseline = 'middle'
+export function makeGlyphAtlas(chars = " .:-=+*#%@", cellPx = 16) {
+	const n = chars.length;
+	const cvs = document.createElement("canvas");
+	cvs.width = cellPx * n;
+	cvs.height = cellPx;
+	const ctx = cvs.getContext("2d");
+	ctx.fillStyle = "#000";
+	ctx.fillRect(0, 0, cvs.width, cvs.height);
+	ctx.fillStyle = "#fff";
+	// bold: at small cellPx a regular-weight stroke anti-aliases to low coverage,
+	// which reads as dim once multiplied into the ink colour downstream
+	ctx.font = `bold ${cellPx}px monospace`;
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle";
 	for (let i = 0; i < n; i++) {
-		ctx.fillText(chars[i], i * cellPx + cellPx / 2, cellPx / 2 + 1)
+		ctx.fillText(chars[i], i * cellPx + cellPx / 2, cellPx / 2 + 1);
 	}
-	const tex = new THREE.CanvasTexture(cvs)
-	tex.minFilter = THREE.NearestFilter
-	tex.magFilter = THREE.NearestFilter
-	tex.generateMipmaps = false
-	tex.colorSpace = THREE.NoColorSpace
-	return { texture: tex, count: n }
+	const tex = new THREE.CanvasTexture(cvs);
+	tex.minFilter = THREE.NearestFilter;
+	tex.magFilter = THREE.NearestFilter;
+	tex.generateMipmaps = false;
+	tex.colorSpace = THREE.NoColorSpace;
+	return { texture: tex, count: n };
 }
 
 // ---- surface materials -------------------------------------------------
@@ -40,11 +42,11 @@ const VERT = /* glsl */ `
 		vVN = normalize(normalMatrix * normal); // view-space: .z ~ 1 faces camera
 		gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 	}
-`
+`;
 
 // how much darker an extruded side face is vs the camera-facing cap, in the
 // flat-colour materials (surfaceColor). the two-tone material has its own ramp.
-const SIDE_MUL = 0.6
+export const SIDE_MUL = 0.6;
 
 function normalMaterial(flag) {
 	return new THREE.ShaderMaterial({
@@ -55,11 +57,11 @@ function normalMaterial(flag) {
 				gl_FragColor = vec4(normalize(vWN) * 0.5 + 0.5, ${flag.toFixed(2)});
 			}
 		`,
-	})
+	});
 }
 
-export const SURFACE_TWO_TONE = normalMaterial(1.0)
-export const SURFACE_SOLID = normalMaterial(0.33)
+export const SURFACE_TWO_TONE = normalMaterial(1.0);
+export const SURFACE_SOLID = normalMaterial(0.33);
 
 // two-tone that dissolves in: `uFade` 0..1 stipples fragments (screen-space hash
 // + discard) so through the glyph pass the object fills in cell by cell. one
@@ -77,17 +79,17 @@ export function surfaceFade() {
 				gl_FragColor = vec4(normalize(vWN) * 0.5 + 0.5, 1.0);
 			}
 		`,
-	})
+	});
 }
 
 // flat colour, one shared instance per hex. the cap keeps the colour; extruded
 // side faces are darkened by SIDE_MUL so the depth reads. still "flat" to the
 // ascii pass (alpha 0.66) — the shading is baked into rgb here.
-const colorCache = new Map()
+const colorCache = new Map();
 export function surfaceColor(hex) {
-	let m = colorCache.get(hex)
+	let m = colorCache.get(hex);
 	if (!m) {
-		const c = new THREE.Color(hex)
+		const c = new THREE.Color(hex);
 		m = new THREE.ShaderMaterial({
 			vertexShader: VERT,
 			fragmentShader: /* glsl */ `
@@ -98,19 +100,43 @@ export function surfaceColor(hex) {
 					gl_FragColor = vec4(base * mix(${SIDE_MUL.toFixed(2)}, 1.0, f), 0.66);
 				}
 			`,
-		})
-		colorCache.set(hex, m)
+		});
+		colorCache.set(hex, m);
 	}
-	return m
+	return m;
+}
+
+// flat colour pinned at the SIDE_MUL tone always — for a face a front-on
+// camera can never actually see edge-on (a slab's top), so a thin front-facing
+// strip stands in for it: shaded like a side face, reading as a raised/shadowed
+// lip at that edge instead of a flat cap.
+const flatSideCache = new Map();
+export function surfaceColorSide(hex, mul = SIDE_MUL) {
+	const key = `${hex}:${mul}`;
+	let m = flatSideCache.get(key);
+	if (!m) {
+		const c = new THREE.Color(hex);
+		m = new THREE.ShaderMaterial({
+			vertexShader: VERT,
+			fragmentShader: /* glsl */ `
+				void main() {
+					vec3 base = vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)});
+					gl_FragColor = vec4(base * ${mul.toFixed(4)}, 0.66);
+				}
+			`,
+		});
+		flatSideCache.set(key, m);
+	}
+	return m;
 }
 
 // translucent "tinted glass": multiplies whatever the ascii G-buffer already
 // holds behind it by `k` (custom ZERO / SRC_COLOR blend, no depth write), so the
 // glyph pass then draws a darker version of what's behind it — and nothing where
 // the background was empty. render it after the opaque geometry (renderOrder).
-const tintCache = new Map()
+const tintCache = new Map();
 export function surfaceTint(k = 0.55) {
-	let m = tintCache.get(k)
+	let m = tintCache.get(k);
 	if (!m) {
 		m = new THREE.ShaderMaterial({
 			transparent: true,
@@ -127,10 +153,10 @@ export function surfaceTint(k = 0.55) {
 			fragmentShader: /* glsl */ `
 				void main() { gl_FragColor = vec4(${k.toFixed(4)}, ${k.toFixed(4)}, ${k.toFixed(4)}, 1.0); }
 			`,
-		})
-		tintCache.set(k, m)
+		});
+		tintCache.set(k, m);
 	}
-	return m
+	return m;
 }
 
 // ---- ascii pass -------------------------------------------------------
@@ -139,16 +165,20 @@ export function surfaceTint(k = 0.55) {
 // other lit cell is drawn in `inkDark`. background stays empty.
 // perspective projection is untouched.
 export function makeAsciiShader({
-	chars = ' .:-=+*#%@',
+	chars = " .:-=+*#%@",
 	cell = 6,
-	ink = '#c8ff9b',
-	inkDark = '#5c8a34',
+	ink = "#c8ff9b",
+	inkDark = "#5c8a34",
 	cutoffDeg = 15,
 	contrast = 1.0,
 	gain = 1.0,
 	dither = 0,
+	waterTint = "#ffffff",
 } = {}) {
-	const { texture, count } = makeGlyphAtlas(chars, 16)
+	// atlas glyph cell must match the display cell (uCell, in device px) 1:1 —
+	// any mismatch forces a nearest-filtered minify/magnify step at sample time,
+	// which aliases into diagonal moire even over flat, single-colour fills.
+	const { texture, count } = makeGlyphAtlas(chars, cell);
 	return {
 		uniforms: {
 			tDiffuse: { value: null },
@@ -164,6 +194,10 @@ export function makeAsciiShader({
 			uDither: { value: dither },
 			// world-space travel direction of the sun; set to camera forward
 			uSunDir: { value: new THREE.Vector3(0, 0, -1) },
+			uWaterTint: { value: new THREE.Color(waterTint) },
+			// screen-space v (0 bottom -> 1 top) of the okmr waterline; -Infinity
+			// off-okmr so the tint below never trips. set live in SceneCanvas.
+			uWaterLineV: { value: -Infinity },
 		},
 		vertexShader: /* glsl */ `
 			varying vec2 vUv;
@@ -185,6 +219,8 @@ export function makeAsciiShader({
 			uniform float uGain;
 			uniform float uDither;
 			uniform vec3 uSunDir;
+			uniform vec3 uWaterTint;
+			uniform float uWaterLineV;
 			varying vec2 vUv;
 
 			// 4x4 Bayer via recursion, no arrays (WebGL1-safe)
@@ -222,6 +258,11 @@ export function makeAsciiShader({
 						float d = dot(n, -uSunDir);
 						tone = d < uCosCutoff ? uInkDark : uInk;
 					}
+					// tint the resolved colour, not the raw buffer — doing this before
+					// the two-tone branch above would corrupt the encoded normal (it's
+					// not a colour) and scramble the ink/inkDark pick instead of just
+					// tinting it. bg cells are already skipped: nothing's drawn there.
+					if (vUv.y < uWaterLineV) tone *= uWaterTint;
 					luma = uGain; // every lit cell draws a full glyph
 				}
 
@@ -235,5 +276,5 @@ export function makeAsciiShader({
 				gl_FragColor = vec4(tone * g, 1.0);
 			}
 		`,
-	}
+	};
 }

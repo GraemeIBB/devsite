@@ -89,7 +89,7 @@ export const BODY = Object.freeze({
 // per-part colours are the scn <look> values (simple.scn <looks> block).
 export const AUV = {
   scale: 3.5,
-  position: [1, 8],
+  position: [-4, 8], // left of centre — OKMR's word letters are biased right (letterBiasX)
   spin: 0,
   tilt: [0.2, 0], // static visual rotation [x, y] — y (yaw toward camera) off for now
   canister: 0.85, // translucent hull: multiplies what's behind it by this (lower = darker)
@@ -116,6 +116,22 @@ export const AUV = {
   },
 };
 
+// robosub-style qualification gate (okmr_stonefish/data/objects/gate.scn):
+// two poles joined by a bottom crossbar, sized in the same real-world/stonefish
+// units as AUV (see gate.jsx — its own remap note explains why it differs from
+// AUV's [x, z, y]). placed partway into the extended okmr level (see
+// okmrRightX) so the camera-follow has something to reveal.
+export const GATE = Object.freeze({
+  scale: 1.75,
+  positionX: 14,
+  positionY: 0, // gate's vertical centre (world y) — fully submerged, a short dive below AUV.ctl.hoverY
+  colors: {
+    red: "#e63946", // look "Red"
+    black: "#1a1a1a", // look "Black"
+    gray: "#4d4d4d", // look "Gray"
+  },
+});
+
 // pit that keeps letters on screen — CuboidCollider half-extents.
 // floor sits flush with the bottom edge of the window (floorCenterY, below);
 // side walls track the visible width (see pit.jsx): landscape parks them at
@@ -126,8 +142,10 @@ export const PIT = Object.freeze({
   wallHalf: [0.5, 30, 3], // clears the off-frame spawn height
 });
 
-// perspective camera
-export const CAMERA = Object.freeze({ z: 13, fov: 45 });
+// perspective camera. `followLerp`: how fast the okmr camera rig (SceneCanvas)
+// eases toward its target x (/s, exp-approach — see water.jsx's riseSpeed for
+// the same pattern).
+export const CAMERA = Object.freeze({ z: 13, fov: 45, followLerp: 3 });
 
 // visible half-extents at the z=0 drag plane. constant as the camera pans in y,
 // so from fov + z (+ pixel aspect for width), not r3f's viewport helper.
@@ -167,9 +185,10 @@ export const DRAG = { stiff: 90, damp: 12, maxImpulse: 8 };
 // the reverse). all tunable; `surfaceY - depth` is the sea floor.
 export const OKMR = Object.freeze({
   color: "#65bbdd", // sea green
+  floorColor: "#0b2b4a", // dark blue sea floor
   surfaceY: 2, // water-surface rest height (world y) — ~2/3 up the frame
   depth: 7, // surface -> sea floor (floor top y = -5)
-  width: 26, // slab width — spans past both pit walls
+  screens: 3, // level width, in screens — the camera pans across it (see okmrRightX, SceneCanvas' CameraRig)
   slabZ: 2, // visual z-thickness of the water body
   floorHalfH: 1.5, // sea-floor collider half-height
   riseSpeed: 2.5, // exp-approach rate of the level tween (/s), both directions
@@ -182,13 +201,28 @@ export const OKMR = Object.freeze({
   chain: 4.5, // bound-letter tether length (anchor -> letter's bottom edge);
   //             shorter than the free-float distance, so it holds letters low + upright
   fadeMs: 800, // bound letters dissolve in over this long once unfrozen
+  letterBiasX: 2.2, // shift the word right of centre (landscape only) — clears the left side for the AUV
 });
+
+// okmr level bounds (world x, landscape only — portrait stays single-screen).
+// left edge = the ordinary left wall, same x every other scene uses; right
+// edge is `screens` screen-widths further out, with no wall there — water and
+// the sea floor span this range (+ OKMR_BLEED so they still run offscreen),
+// and the camera rig (SceneCanvas) pans between the two, pinning at each end.
+export const OKMR_BLEED = 4.5;
+export const okmrLeftX = () => -PIT.wallX;
+export const okmrRightX = (size) =>
+  okmrLeftX() + OKMR.screens * 2 * visibleHalfWidth(size);
 
 export const ASCII = {
   chars: " .:-=+*#%@",
-  cell: 6,
+  cell: 4,
   ink: "#c8ff9b",
   inkDark: "#5c8a34",
   cutoffDeg: 15,
   contrast: 1.5, // pivot-0.5 contrast on the final tone
+  // multiplies the resolved ink colour (post ink/inkDark, not the raw normal
+  // buffer) for any cell below the okmr waterline — see SceneCanvas'
+  // AsciiEffects (uWaterLineV) and asciiShader.js's uWaterTint.
+  waterTint: "#bfe8ff",
 };

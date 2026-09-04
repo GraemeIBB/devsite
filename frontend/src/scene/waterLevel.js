@@ -10,3 +10,15 @@ export const setWaterLevel = (v) => {
 }
 
 export const getWaterLevel = () => level
+
+// live world-y of the water surface, eased (see water.jsx) — not just the 0..1
+// target above. lets bodies that fly themselves (the AUV — it opts out of
+// water.jsx's buoyancy loop) tell whether they're currently submerged. defaults
+// low so nothing reads as submerged before <Water> has run its first frame.
+let surfaceY = -Infinity
+
+export const setWaterSurfaceY = (v) => {
+	surfaceY = v
+}
+
+export const getWaterSurfaceY = () => surfaceY
