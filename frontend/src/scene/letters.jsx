@@ -14,6 +14,7 @@ import {
 } from './config'
 import { glyphGeometry } from './glyphGeometry'
 import SceneObject from './SceneObject'
+import { useStaged } from './useStaged'
 
 const MATERIAL = { [SHADING.TWO_TONE]: SURFACE_TWO_TONE, [SHADING.SOLID]: SURFACE_SOLID }
 
@@ -24,7 +25,7 @@ const Z_STEP = 0.03
 
 // ---- letter ----------------------------------------------------------
 // a letter is a SceneObject with a cached TextGeometry for its visual mesh.
-function Letter({ font, char, factor, shading, position, spin, ccd, grabbable, index, launch }) {
+function Letter({ font, char, factor, shading, position, spin, ccd, grabbable, index, launch, frozen }) {
 	const geometry = useMemo(
 		() => glyphGeometry(font, char, factor),
 		[font, char, factor],
@@ -42,6 +43,7 @@ function Letter({ font, char, factor, shading, position, spin, ccd, grabbable, i
 			ccd={ccd}
 			grabbable={grabbable}
 			launch={launch}
+			frozen={frozen}
 		>
 			{/* dispose={null}: geometry + material are shared, don't free on unmount */}
 			<mesh
@@ -146,16 +148,25 @@ export function Letters({
 	spacing, // explicit world-unit gap, overrides the auto spacing
 	rows, // row count — overrides the portrait 2 / landscape 1 default (1 = single line)
 	launch, // 'down' | 'left' | 'right' | [x,y,z] — applied to every letter at spawn
+	level = 0, // useStaged level — parked above the frame until level*STAGE_MS
 }) {
 	const font = useFont(FONT)
 	const size = useThree((s) => s.size)
 	const inner = playHalfWidth(size, portrait)
+	const released = useStaged(level)
 	const letters = useMemo(
 		() =>
 			buildLetters(word, portrait, scale, { bias, align, spacing, rows }, inner),
 		[word, portrait, scale, bias, align, spacing, rows, inner],
 	)
 	return letters.map((item, i) => (
-		<Letter key={i} index={i} font={font} launch={launch} {...item} />
+		<Letter
+			key={i}
+			index={i}
+			font={font}
+			launch={launch}
+			frozen={!released}
+			{...item}
+		/>
 	))
 }

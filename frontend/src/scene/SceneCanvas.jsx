@@ -7,7 +7,7 @@ import { makeAsciiShader } from './asciiShader'
 import { DragController } from './drag'
 import { Pit } from './pit'
 import ClearWatch from './ClearWatch'
-import { PAGES, WordScene } from './pages'
+import { PAGES, WordScene, SCENE_BOUNDS } from './pages'
 import { useSceneTransition } from './transition'
 import { ASCII, CAMERA, PHYSICS } from './config'
 
@@ -73,6 +73,7 @@ function PageScene({ path, portrait, navigate }) {
 }
 
 function World({ portrait, navigate, shownPath, exit, clear }) {
+	const Bounds = SCENE_BOUNDS[shownPath] ?? Pit
 	return (
 		<Physics gravity={exit?.gravity ?? PHYSICS.gravity}>
 			<DragController />
@@ -82,8 +83,9 @@ function World({ portrait, navigate, shownPath, exit, clear }) {
 				portrait={portrait}
 				navigate={navigate}
 			/>
-			{/* the active exit owns the bounds while it runs, else the normal pit */}
-			{exit ? <exit.Stage portrait={portrait} /> : <Pit portrait={portrait} />}
+			{/* the active exit owns the bounds while it runs, else the scene's
+			    bounds (default pit, or a per-scene override) */}
+			{exit ? <exit.Stage portrait={portrait} /> : <Bounds portrait={portrait} />}
 			<ClearWatch active={!!exit} onClear={clear} />
 		</Physics>
 	)

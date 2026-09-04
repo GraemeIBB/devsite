@@ -90,13 +90,29 @@ export const BODY = Object.freeze({
 export const AUV = {
   scale: 3.5,
   position: [1, 8],
-  spin: -0.35,
-  tilt: [0.32, -0.55], // static visual rotation [x, y] for a 3/4 view
+  spin: 0,
+  tilt: [0.2, 0], // static visual rotation [x, y] — y (yaw toward camera) off for now
+  canister: 0.85, // translucent hull: multiplies what's behind it by this (lower = darker)
   colors: {
     hull: "#4d4d4d", // look "Gray"  (gray 0.3)
     rail: "#004dcc", // look "Blue"  (rgb 0.0 0.3 0.8)
     dvl: "#1a1a1a", // look "Black" (gray 0.0, nudged up so it renders)
     thruster: "#4d4d4d", // look "Gray"
+  },
+  // keyboard flight (arrows / WASD, okmr scene). up/down ramp a depth setpoint
+  // that a PID holds against gravity; left/right thrust horizontally (x runs
+  // free); the hull banks toward horizontal input via a PD on heading.
+  ctl: {
+    hoverY: 1, // initial depth setpoint (world y)
+    depthRange: [-3.5, 1.6], // clamp the setpoint clear of seabed / surface
+    depthRate: 4, // units/s the setpoint moves while up/down held
+    // oMax is the motor authority — gravity is ~14, so 20 leaves little headroom:
+    // a letter barging in shoves the AUV off station and it has to fight back.
+    depth: { kp: 40, ki: 10, kd: 11, iMax: 4, oMax: 20 }, // -> accel (mass-scaled)
+    surge: 8, // horizontal thrust accel while left/right held
+    bank: 0.4, // rad the hull leans toward horizontal input
+    heading: { kp: 12, kd: 5, oMax: 7 }, // PD -> clamped torque impulse
+    dtMax: 0.05, // clamp frame dt fed to the controllers
   },
 };
 
@@ -145,6 +161,28 @@ export const DEPTH = 0.9;
 
 // pointer-drag spring
 export const DRAG = { stiff: 90, damp: 12, maxImpulse: 8 };
+
+// okmr — the water scene (scene/water.jsx). a #03b787 body of water that rises
+// from below the frame on entrance and drains back down on exit (exits/drain,
+// the reverse). all tunable; `surfaceY - depth` is the sea floor.
+export const OKMR = Object.freeze({
+  color: "#65bbdd", // sea green
+  surfaceY: 2, // water-surface rest height (world y) — ~2/3 up the frame
+  depth: 7, // surface -> sea floor (floor top y = -5)
+  width: 26, // slab width — spans past both pit walls
+  slabZ: 2, // visual z-thickness of the water body
+  floorHalfH: 1.5, // sea-floor collider half-height
+  riseSpeed: 2.5, // exp-approach rate of the level tween (/s), both directions
+  // buoyancy on every dynamic body below the surface: a spring toward the
+  // surface minus vertical drag. rest submersion ~= |gravity| / buoyLift.
+  buoyLift: 16, // upward accel per unit submersion
+  buoyDamp: 5, // vertical-velocity drag while submerged
+  buoyMax: 3, // submersion depth the lift saturates at
+  buoyPoint: 0.6, // apply the lift this far above the body origin (keeps bodies upright)
+  chain: 4.5, // bound-letter tether length (anchor -> letter's bottom edge);
+  //             shorter than the free-float distance, so it holds letters low + upright
+  fadeMs: 800, // bound letters dissolve in over this long once unfrozen
+});
 
 export const ASCII = {
   chars: " .:-=+*#%@",

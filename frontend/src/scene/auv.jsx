@@ -1,8 +1,21 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
-import { surfaceColor } from './asciiShader'
+import { surfaceColor, surfaceTint } from './asciiShader'
 import { AUV } from './config'
 import { grab, hoverCursor } from './drag'
+import { pid } from './pid'
+import { useStaged } from './useStaged'
+
+const NO_BUOYANCY = { noBuoyancy: true } // water.jsx skips this body — the AUV flies itself
+
+// arrows / WASD -> intent flags
+const KEYMAP = {
+	ArrowUp: 'up', KeyW: 'up',
+	ArrowDown: 'down', KeyS: 'down',
+	ArrowLeft: 'left', KeyA: 'left',
+	ArrowRight: 'right', KeyD: 'right',
+}
 
 // low-poly ogopogo, rebuilt from okmr_stonefish/data/robots/ogopogo.scn
 // (primitives only). stonefish is Z-up / X-forward; remapped here to
@@ -25,7 +38,7 @@ const THRUSTERS = [
 ]
 
 const MAT = {
-	hull: surfaceColor(AUV.colors.hull),
+	hull: surfaceTint(AUV.canister), // translucent tube — darkens what's behind it
 	rail: surfaceColor(AUV.colors.rail),
 	dvl: surfaceColor(AUV.colors.dvl),
 	thruster: surfaceColor(AUV.colors.thruster),
@@ -34,7 +47,12 @@ const MAT = {
 function Body() {
 	return (
 		<group>
-			<mesh material={MAT.hull} rotation={[0, 0, Math.PI / 2]} dispose={null}>
+			<mesh
+				material={MAT.hull}
+				rotation={[0, 0, Math.PI / 2]}
+				renderOrder={10} // after opaque geometry: it tints what's already drawn
+				dispose={null}
+			>
 				<capsuleGeometry args={[HULL.r, HULL.len, 4, 12]} />
 			</mesh>
 			<mesh material={MAT.rail} position={[0, 0.035, -0.1]} dispose={null}>
@@ -55,28 +73,83 @@ function Body() {
 	)
 }
 
-export function Auv() {
+export function Auv({ level = 0 }) {
 	const body = useRef()
+	const keys = useRef(new Set())
+	const targetY = useRef(AUV.ctl.hoverY) // depth setpoint the up/down keys ramp
+	const [depthPid] = useState(() => pid(AUV.ctl.depth))
+	const released = useStaged(level)
 	const s = AUV.scale
+
+	useEffect(() => {
+		const down = (e) => {
+			const k = KEYMAP[e.code]
+			if (!k) return
+			keys.current.add(k)
+			e.preventDefault()
+		}
+		const up = (e) => keys.current.delete(KEYMAP[e.code])
+		window.addEventListener('keydown', down)
+		window.addEventListener('keyup', up)
+		return () => {
+			window.removeEventListener('keydown', down)
+			window.removeEventListener('keyup', up)
+		}
+	}, [])
+
+	useFrame((_, delta) => {
+		const rb = body.current
+		if (!rb || !released || !rb.isDynamic()) return
+		const dt = Math.min(delta, AUV.ctl.dtMax)
+		const k = keys.current
+		const m = rb.mass() || 1
+
+		// vertical — keys ramp the setpoint, PID holds it (I term cancels gravity)
+		const [lo, hi] = AUV.ctl.depthRange
+		if (k.has('up')) targetY.current += AUV.ctl.depthRate * dt
+		if (k.has('down')) targetY.current -= AUV.ctl.depthRate * dt
+		targetY.current = Math.max(lo, Math.min(hi, targetY.current))
+		const fy = depthPid.step(targetY.current - rb.translation().y, dt)
+		rb.applyImpulse({ x: 0, y: fy * m * dt, z: 0 }, true)
+
+		// horizontal — direct thrust, x drifts free
+		const sx = (k.has('right') ? 1 : 0) - (k.has('left') ? 1 : 0)
+		if (sx) rb.applyImpulse({ x: sx * AUV.ctl.surge * m * dt, y: 0, z: 0 }, true)
+
+		// heading — bank toward the horizontal input, PD hold, clamped authority
+		const r = rb.rotation()
+		const ang = 2 * Math.atan2(r.z, r.w)
+		const { kp, kd, oMax } = AUV.ctl.heading
+		const tq = kp * (-sx * AUV.ctl.bank - ang) - kd * rb.angvel().z
+		rb.applyTorqueImpulse(
+			{ x: 0, y: 0, z: Math.max(-oMax, Math.min(oMax, tq)) * dt },
+			true,
+		)
+	})
+
 	return (
 		<RigidBody
 			ref={body}
+			// parked as a fixed body above the frame until its level releases it
+			type={released ? 'dynamic' : 'fixed'}
+			userData={NO_BUOYANCY}
 			position={[AUV.position[0], AUV.position[1], 0]}
 			rotation={[0, 0, AUV.spin]}
 			colliders={false}
 			ccd
 			enabledTranslations={[true, true, false]}
-			enabledRotations={[false, false, true]}
+			enabledRotations={[false, false, true]} // z only — heading PD drives it
 			restitution={0.15}
 			friction={0.8}
-			linearDamping={0.3}
-			angularDamping={0.6}
+			linearDamping={1.1}
+			angularDamping={3}
 		>
-			{/* box ~ rails + thruster spread + DVL nub */}
-			<CuboidCollider args={[0.3 * s, 0.16 * s, 0.2 * s]} position={[0, 0.05 * s, 0]} />
+			{/* box ~ rails + thruster spread + DVL nub — model is rolled 180° below,
+			    so its mass sits at -0.05*s */}
+			<CuboidCollider args={[0.3 * s, 0.16 * s, 0.2 * s]} position={[0, -0.05 * s, 0]} />
 			{/* invisible grab target */}
 			<mesh
-				position={[0, 0.05 * s, 0]}
+				position={[0, -0.05 * s, 0]}
 				onPointerDown={(e) => grab(e, body.current)}
 				{...hoverCursor}
 			>
@@ -84,7 +157,11 @@ export function Auv() {
 				<meshBasicMaterial colorWrite={false} depthWrite={false} />
 			</mesh>
 			<group scale={s} rotation={[AUV.tilt[0], AUV.tilt[1], 0]}>
-				<Body />
+				{/* the .scn remap came out inverted — roll 180° about the nose axis
+				    (keeps +x forward, no negative scale so normals stay correct) */}
+				<group rotation={[Math.PI, 0, 0]}>
+					<Body />
+				</group>
 			</group>
 		</RigidBody>
 	)

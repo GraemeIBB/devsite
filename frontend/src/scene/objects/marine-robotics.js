@@ -12,4 +12,5 @@ export default {
 	collider: { shape: 'ball', radius: 1.2 },
 	spawn: { x: -1, y: 19, spin: 0.25 },
 	ccd: true,
+	to: '/okmr', // tap -> the water scene
 }

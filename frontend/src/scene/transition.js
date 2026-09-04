@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { pickExit } from './exits'
+import { SCENE_EXIT } from './pages'
 
 // how long past an exit's own duration to keep waiting for the scene to clear
 // before forcing the swap (a body wedged on a ledge shouldn't hang the site).
@@ -21,9 +22,10 @@ export function useSceneTransition() {
 		latest.current = pathname
 	}, [pathname])
 
-	// route diverged and nothing playing -> pick an exit (guarded, converges)
+	// route diverged and nothing playing -> pick an exit (guarded, converges).
+	// the scene being left can pin its exit (SCENE_EXIT), else it's random.
 	if (pathname !== shownPath && !exit) {
-		setExit(pickExit())
+		setExit(SCENE_EXIT[shownPath] ?? pickExit())
 	}
 
 	const clear = useCallback(() => {

@@ -61,6 +61,25 @@ function normalMaterial(flag) {
 export const SURFACE_TWO_TONE = normalMaterial(1.0)
 export const SURFACE_SOLID = normalMaterial(0.33)
 
+// two-tone that dissolves in: `uFade` 0..1 stipples fragments (screen-space hash
+// + discard) so through the glyph pass the object fills in cell by cell. one
+// fresh instance per fading object — it owns its uniform; dispose it on unmount.
+export function surfaceFade() {
+	return new THREE.ShaderMaterial({
+		vertexShader: VERT,
+		uniforms: { uFade: { value: 0 } },
+		fragmentShader: /* glsl */ `
+			varying vec3 vWN;
+			uniform float uFade;
+			float h21(vec2 p) { return fract(sin(dot(p, vec2(41.13, 289.7))) * 43758.5); }
+			void main() {
+				if (uFade < 0.999 && h21(floor(gl_FragCoord.xy / 5.0)) > uFade) discard;
+				gl_FragColor = vec4(normalize(vWN) * 0.5 + 0.5, 1.0);
+			}
+		`,
+	})
+}
+
 // flat colour, one shared instance per hex. the cap keeps the colour; extruded
 // side faces are darkened by SIDE_MUL so the depth reads. still "flat" to the
 // ascii pass (alpha 0.66) — the shading is baked into rgb here.
@@ -81,6 +100,35 @@ export function surfaceColor(hex) {
 			`,
 		})
 		colorCache.set(hex, m)
+	}
+	return m
+}
+
+// translucent "tinted glass": multiplies whatever the ascii G-buffer already
+// holds behind it by `k` (custom ZERO / SRC_COLOR blend, no depth write), so the
+// glyph pass then draws a darker version of what's behind it — and nothing where
+// the background was empty. render it after the opaque geometry (renderOrder).
+const tintCache = new Map()
+export function surfaceTint(k = 0.55) {
+	let m = tintCache.get(k)
+	if (!m) {
+		m = new THREE.ShaderMaterial({
+			transparent: true,
+			depthWrite: false,
+			blending: THREE.CustomBlending,
+			blendEquation: THREE.AddEquation,
+			blendSrc: THREE.ZeroFactor,
+			blendDst: THREE.SrcColorFactor,
+			vertexShader: /* glsl */ `
+				void main() {
+					gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+				}
+			`,
+			fragmentShader: /* glsl */ `
+				void main() { gl_FragColor = vec4(${k.toFixed(4)}, ${k.toFixed(4)}, ${k.toFixed(4)}, 1.0); }
+			`,
+		})
+		tintCache.set(k, m)
 	}
 	return m
 }
