@@ -2,64 +2,17 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { Effects } from '@react-three/drei'
-import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier'
+import { Physics } from '@react-three/rapier'
 import { makeAsciiShader } from './asciiShader'
-import { Letters } from './letters'
-import SceneObjects from './objects/SceneObjects'
-import { OBJECTS } from './objects'
-// import { Auv } from './auv'
 import { DragController } from './drag'
-import { ASCII, CAMERA, PHYSICS, PIT } from './config'
+import { Pit } from './pit'
+import ClearWatch from './ClearWatch'
+import { PAGES, WordScene } from './pages'
+import { useSceneTransition } from './transition'
+import { ASCII, CAMERA, PHYSICS } from './config'
 
-// visible half-width at the z=0 drag plane. constant as the camera pans in y,
-// so it's derived from fov + z + pixel aspect, not r3f's viewport helper.
-function visibleHalfWidth(size) {
-	return Math.tan((CAMERA.fov * Math.PI) / 360) * CAMERA.z * (size.width / size.height)
-}
-
-function Pit({ portrait }) {
-	const size = useThree((s) => s.size)
-	const x = portrait ? visibleHalfWidth(size) + PIT.wallHalf[0] : PIT.wallX
-	return (
-		<>
-			<RigidBody
-				type="fixed"
-				colliders={false}
-				position={PIT.floor.position}
-				friction={0.8}
-			>
-				<CuboidCollider args={PIT.floor.args} />
-			</RigidBody>
-			{[-x, x].map((wx) => (
-				// key on rounded x so a width change cleanly re-seats the wall
-				<RigidBody
-					key={Math.round(wx * 100)}
-					type="fixed"
-					colliders={false}
-					position={[wx, 0, 0]}
-					friction={0.8}
-				>
-					<CuboidCollider args={PIT.wallHalf} />
-				</RigidBody>
-			))}
-		</>
-	)
-}
-
-function Scene({ portrait, navigate }) {
-	return (
-		<Physics gravity={PHYSICS.gravity}>
-			<DragController />
-			<Letters portrait={portrait} />
-			<SceneObjects items={OBJECTS} navigate={navigate} />
-			{/* <Auv /> */}
-			<Pit portrait={portrait} />
-		</Physics>
-	)
-}
-
-// window size + orientation. portrait = taller than wide; a flip rebuilds the
-// physics scene (below) so GRAEME re-spawns in the layout that fits.
+// window size + orientation. a portrait<->landscape flip remounts the active
+// page (below) so its letters re-lay for the new aspect.
 function useViewport() {
 	const [vp, setVp] = useState(() => ({
 		w: window.innerWidth,
@@ -89,8 +42,8 @@ function useViewport() {
 	return vp
 }
 
-// full-screen ascii pass: reads the world-normal G-buffer, shades it against
-// a sun down the camera's forward axis, draws glyphs.
+// full-screen ascii pass: reads the world-normal G-buffer, shades it against a
+// sun down the camera's forward axis, draws glyphs.
 function AsciiEffects() {
 	const pass = useRef()
 	const [shader] = useState(() => makeAsciiShader(ASCII))
@@ -114,27 +67,52 @@ function AsciiEffects() {
 	)
 }
 
-export default function Spike() {
+function PageScene({ path, portrait, navigate }) {
+	const Page = PAGES[path] ?? WordScene
+	return <Page path={path} portrait={portrait} navigate={navigate} />
+}
+
+function World({ portrait, navigate, shownPath, exit, clear }) {
+	return (
+		<Physics gravity={exit?.gravity ?? PHYSICS.gravity}>
+			<DragController />
+			<PageScene
+				key={`${shownPath}|${portrait ? 'p' : 'l'}`}
+				path={shownPath}
+				portrait={portrait}
+				navigate={navigate}
+			/>
+			{/* the active exit owns the bounds while it runs, else the normal pit */}
+			{exit ? <exit.Stage portrait={portrait} /> : <Pit portrait={portrait} />}
+			<ClearWatch active={!!exit} onClear={clear} />
+		</Physics>
+	)
+}
+
+// the persistent scene: one <Canvas> for the whole site. route changes play an
+// exit (exits/*) then swap the page; the canvas never unmounts.
+export default function SceneCanvas() {
 	const { w, h, portrait } = useViewport()
-	// resolved out here: react-router context doesn't cross into <Canvas>
+	// router reads live out here — context does not cross into <Canvas>
 	const navigate = useNavigate()
+	const { shownPath, exit, clear } = useSceneTransition()
+
 	return (
 		<div style={{ position: 'fixed', inset: 0, background: '#000' }}>
 			<Canvas
-				// canvas locked to the window box
-				style={{ width: w, height: h }}
+				style={{ width: w, height: h }} // locked to the window box
 				resize={{ scroll: false }}
 				camera={{ position: [0, 0, CAMERA.z], fov: CAMERA.fov }}
 				dpr={[1, 2]}
 				onCreated={({ gl }) => gl.setClearAlpha(0)}
 			>
 				<Suspense fallback={null}>
-					{/* key flips on orientation change -> physics world + letter
-					    layout rebuild from scratch */}
-					<Scene
-						key={portrait ? 'portrait' : 'landscape'}
+					<World
 						portrait={portrait}
 						navigate={navigate}
+						shownPath={shownPath}
+						exit={exit}
+						clear={clear}
 					/>
 				</Suspense>
 				<AsciiEffects />

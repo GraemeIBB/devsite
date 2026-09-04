@@ -5,12 +5,27 @@ import { SVGLoader } from 'three-stdlib'
 import { surfaceColor, SURFACE_TWO_TONE } from '../asciiShader'
 import { DEPTH } from '../config'
 import SceneObject from '../SceneObject'
+import Box from '../Box'
+import WordBlock from '../WordBlock'
 import { useStaged } from '../useStaged'
 
-// loads + extrudes each descriptor's SVG, then wraps the shared <SceneObject>.
-// the primitive owns the body / collider / hit target; this owns geometry and
-// the `to` -> navigation mapping. see objects/README.md
+// renders object descriptors (objects/<name>.js). dispatches on `kind`:
+//   'svg' (default) — extrude the descriptor's SVG, wrap <SceneObject>
+//   'box'           — a coloured sizable slab (the <Box> primitive)
+//   'word'          — a word locked into one rigid body (the <WordBlock> primitive)
+// the primitives own body / collider / hit target + the drei <Html> anchor;
+// this owns geometry + the `to` -> navigation mapping. see objects/README.md
 
+const navTo = (to, navigate) =>
+	to == null
+		? undefined
+		: () => {
+				if (typeof to === 'number') navigate(to)
+				else if (/^https?:/.test(to)) window.open(to, '_blank', 'noopener')
+				else navigate(to)
+			}
+
+// ---- svg objects --------------------------------------------------------
 const cache = new Map() // src|depth|shading -> { meshes, norm, center }
 
 function build(paths, depth, twoTone) {
@@ -40,7 +55,7 @@ function build(paths, depth, twoTone) {
 	return { meshes, norm: 1 / size.y, center }
 }
 
-function Logo({ d, navigate }) {
+function SvgObject({ d, navigate }) {
 	const data = useLoader(SVGLoader, d.src)
 	const depth = d.depth ?? DEPTH
 	const released = useStaged(d.level ?? 1) // drop in after GRAEME (level 0) settles
@@ -55,15 +70,6 @@ function Logo({ d, navigate }) {
 		return v
 	}, [data, d.src, depth, d.shading])
 
-	const onClick =
-		d.to == null
-			? undefined
-			: () => {
-					if (typeof d.to === 'number') navigate(d.to)
-					else if (/^https?:/.test(d.to)) window.open(d.to, '_blank', 'noopener')
-					else navigate(d.to)
-				}
-
 	const s = d.scale ?? 1
 
 	return (
@@ -73,8 +79,9 @@ function Logo({ d, navigate }) {
 			spin={d.spawn.spin ?? 0}
 			ccd={d.ccd ?? false}
 			grabbable
-			onClick={onClick}
+			onClick={navTo(d.to, navigate)}
 			frozen={!released}
+			launch={d.launch}
 		>
 			{/* x/y: normalise artwork to ~1u then apply scale. y flipped (svg is y-down).
 			    z: depth already centred in build(), never scaled. */}
@@ -92,8 +99,51 @@ function Logo({ d, navigate }) {
 	)
 }
 
+// ---- box objects ------------------------------------------------------
+function BoxObject({ d, navigate }) {
+	const released = useStaged(d.level ?? 1)
+	return (
+		<Box
+			size={d.size}
+			color={d.color}
+			position={[d.spawn.x, d.spawn.y]}
+			spin={d.spawn.spin ?? 0}
+			frozen={!released}
+			grabbable={d.grabbable ?? true}
+			onClick={navTo(d.to, navigate)}
+			launch={d.launch}
+		>
+			{d.html}
+		</Box>
+	)
+}
+
+// ---- word objects ---------------------------------------------------
+function WordObject({ d, navigate }) {
+	const released = useStaged(d.level ?? 1)
+	return (
+		<WordBlock
+			word={d.word}
+			factor={d.factor ?? 1}
+			spacing={d.spacing}
+			inverted={d.inverted ?? false}
+			position={[d.spawn.x, d.spawn.y]}
+			spin={d.spawn.spin ?? 0}
+			frozen={!released}
+			grabbable={d.grabbable ?? true}
+			onClick={navTo(d.to, navigate)}
+			launch={d.launch}
+		/>
+	)
+}
+
+const KIND = { box: BoxObject, word: WordObject }
+
 export default function SceneObjects({ items, navigate }) {
 	// all mounted up front (geometry + shaders warm during the initial spin-up);
-	// each Logo stays frozen until its level releases it — see useStaged
-	return items.map((d) => <Logo key={d.name} d={d} navigate={navigate} />)
+	// each stays frozen until its level releases it — see useStaged
+	return items.map((d) => {
+		const Obj = KIND[d.kind] ?? SvgObject
+		return <Obj key={d.name} d={d} navigate={navigate} />
+	})
 }

@@ -1,28 +1,18 @@
-import Home from './Home'
-import Projects from './Projects'
-import Logs from './Logs'
-import Demos from './Demos'
-import Stats from './Stats/Stats'
-import Spike from './spike/Spike'
 import Navbar from './Navbar'
-import { BrowserRouter, Routes, Route} from 'react-router-dom'
+import SceneCanvas from './scene/SceneCanvas'
+import { BrowserRouter } from 'react-router-dom'
 import './App.css'
 
-function App () { 
-	
-	return(
-		<div className='container'>
-		<BrowserRouter>
-		<Navbar/>
-		<Routes>
-		<Route path='/' element={<Home/>}/>
-		<Route path='/projects' element={<Projects/>}/>
-		<Route path='/logs' element={<Logs/>}/>
-		<Route path='/demos' element={<Demos/>}/>
-		<Route path='/stats' element={<Stats/>}/>
-		<Route path='/spike' element={<Spike/>}/>
-		</Routes>
-		</BrowserRouter>
+// the site is one persistent r3f scene. routes drive scene transitions
+// (scene/transition.js), not page swaps. legacy DOM pages (Home.jsx, Projects.jsx,
+// Stats/, ...) are superseded and left unimported.
+function App() {
+	return (
+		<div className="container">
+			<BrowserRouter>
+				<Navbar />
+				<SceneCanvas />
+			</BrowserRouter>
 		</div>
 	)
 }

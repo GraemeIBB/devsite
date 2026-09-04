@@ -44,7 +44,7 @@ const VERT = /* glsl */ `
 
 // how much darker an extruded side face is vs the camera-facing cap, in the
 // flat-colour materials (surfaceColor). the two-tone material has its own ramp.
-const SIDE_MUL = 0.62
+const SIDE_MUL = 0.6
 
 function normalMaterial(flag) {
 	return new THREE.ShaderMaterial({

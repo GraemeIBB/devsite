@@ -1,6 +1,6 @@
 # Scene objects — SOP
 
-How to add a new physics object to the spike scene (logos, nav buttons, later:
+How to add a new physics object to the scene (logos, nav buttons, later:
 page sections). Objects share the letters' constraints — plane-locked rapier
 bodies rendered through the ascii pass — but bring their own shape, colour and
 (optionally) a click action.
@@ -9,8 +9,8 @@ bodies rendered through the ascii pass — but bring their own shape, colour and
 
 1. Drop the artwork in `frontend/public/logos/<name>.svg` (baked-in `fill`s, no
    strokes, tight viewBox).
-2. Add `spike/objects/<name>.js` — a default-exported descriptor.
-3. Register it in `spike/objects/index.js`.
+2. Add `scene/objects/<name>.js` — a default-exported descriptor.
+3. Register it in `scene/objects/index.js`.
 4. Tune `collider` and `spawn` by eye.
 
 Nothing else. No shader edits for a new colour, no per-object component.
@@ -19,7 +19,7 @@ Nothing else. No shader edits for a new colour, no per-object component.
 
 ## 1. The shared contract
 
-`spike/SceneObject.jsx` **is** the abstraction. It's a plane-locked `RigidBody`
+`scene/SceneObject.jsx` **is** the abstraction. It's a plane-locked `RigidBody`
 (`colliders={false}`) + a collider + an optional invisible hit target. Letters,
 logos and buttons are all `<SceneObject>` + visual-mesh children — you never
 rewrite the body.
@@ -46,7 +46,7 @@ does not touch depth** — only x/y. That's what keeps "same depth" true.
 
 ## 2. The descriptor
 
-`spike/objects/github.js`:
+`scene/objects/github.js`:
 
 ```js
 import { DEPTH } from '../config'
@@ -62,9 +62,64 @@ export default {
   spawn: { x: -3, y: 14, spin: 0.15 },
   ccd: true,                                   // fast small objects only
   level: 1,                                    // stage — drops in at level*STAGE_MS (default 1)
+  launch: 'right',                             // OPTIONAL — kick at release ('left'|'right'|'down'|[x,y,z])
   to: 'https://github.com/<user>',             // OPTIONAL — presence makes it clickable
 }
 ```
+
+### `kind: 'box'` — a coloured slab instead of an SVG
+
+Drop `src`/`scale`/`shading`, add `size` + `color`. Renders the `<Box>`
+primitive (`scene/Box.jsx`) — same physics, cuboid collider, and a drei `<Html>`
+anchor for `html` content that tracks the slab.
+
+```js
+export default {
+  name: 'panel',
+  kind: 'box',
+  size: [4, 2],                 // [w, h] world units; depth is the shared DEPTH
+  color: '#5c8a34',
+  spawn: { x: 0, y: 12 },
+  level: 2,
+  grabbable: true,              // default true
+  html: <div>…</div>,           // OPTIONAL — drei <Html> pinned to the slab centre
+  to: '/somewhere',             // OPTIONAL — clickable
+}
+```
+
+For slabs whose size depends on the live window (rows/columns filling the
+screen), use `<Box>` directly in a page component instead — see
+`pages/ProjectBoxes.jsx`.
+
+### `kind: 'word'` — a word locked into one rigid body
+
+Renders `<WordBlock>` (`scene/WordBlock.jsx`): the word's glyphs (shared glyph
+cache with the letters, two-tone shaded) frozen together as **one** body with a
+single cuboid collider — it tumbles and collides as a single big character,
+not draggable letters.
+
+```js
+export default {
+  name: 'devlog',
+  kind: 'word',
+  word: 'DEVLOG',
+  factor: 1.5,                   // glyph scale (default 1)
+  spacing: 1.8,                  // OPTIONAL glyph gap; default ~0.8 * BASE * factor
+  inverted: false,               // OPTIONAL — see below
+  spawn: { x: 0, y: 14, spin: 0.2 },
+  level: 1,
+  to: '/logs',                  // OPTIONAL — clickable
+}
+```
+
+**`inverted: true`** — flips it: one rounded two-tone slab with the phrase
+punched straight through it, so the word reads as the empty cells in a field of
+glyphs. Counters (the hole in `O` / `A` / `R`) come back as solid islands so the
+letters stay legible. Uses the font's own kerning, so `spacing` is ignored. The
+collider is the full slab (cutouts don't affect physics). Same contract
+otherwise — `factor`, `spawn`, `level`, `to`, `launch`, `frozen` all apply.
+Geometry is module-cached by `word|factor`; extrude depth is the shared `DEPTH`,
+straddling z=0 like every other object.
 
 ### `to` — click behaviour
 
@@ -135,36 +190,35 @@ extrude bbox in dev — read the x/y size and halve.
 
 ## 5. Registry & wiring
 
-`spike/objects/index.js`:
+`scene/objects/index.js` exposes the individual descriptors + per-page groups:
 
 ```js
-import github from './github'
-import linkedin from './linkedin'
-import back from './back'
-
-export const OBJECTS = [github, linkedin, back]
+export { github, linkedin, back, projects }
+export const HOME_OBJECTS = [github, linkedin, projects]
+export const BACK_ONLY = [back]
 ```
 
-`Spike.jsx` `Scene` (inside `<Physics>`, next to `<Letters>`):
+A page component (`scene/pages/<Name>.jsx`) renders the set it wants, alongside
+its `<Letters>`:
 
 ```jsx
-import SceneObjects from './objects/SceneObjects'
-import { OBJECTS } from './objects'
+import SceneObjects from '../objects/SceneObjects'
+import { HOME_OBJECTS } from '../objects'
 
-// navigate is threaded from Spike — useNavigate() throws inside <Canvas> (gotcha #1)
-<SceneObjects items={OBJECTS} navigate={navigate} />
+// navigate is threaded from SceneCanvas — useNavigate() throws inside <Canvas> (gotcha #1)
+<SceneObjects items={HOME_OBJECTS} navigate={navigate} />
 ```
 
 ---
 
 ## 6. Implementation
 
-All in the tree: `spike/SceneObject.jsx` (primitive), `spike/objects/SceneObjects.jsx`
-(SVG→mesh mapper), `spike/drag.js` `grabOrClick`, `config.BODY` / `config.DEPTH`,
+All in the tree: `scene/SceneObject.jsx` (primitive), `scene/objects/SceneObjects.jsx`
+(SVG→mesh mapper), `scene/drag.js` `grabOrClick`, `config.BODY` / `config.DEPTH`,
 `asciiShader.js` `SIDE_MUL`. Letters build on `SceneObject`. Live objects:
-`github`, `linkedin`, `back`, `next`.
+`github`, `linkedin`, `back`, `projects` (a `kind: 'word'`).
 
-### `spike/objects/SceneObjects.jsx` — what it does
+### `scene/objects/SceneObjects.jsx` — what it does
 
 Read the file for the source. Contract:
 
@@ -186,9 +240,10 @@ Read the file for the source. Contract:
 ## 7. Gotchas
 
 1. **R3F is a separate reconciler.** React context does not cross `<Canvas>`.
-   `useNavigate()` / any `useContext` **throws** inside the scene. Resolve
-   router/nav in `Spike` (which is inside `<BrowserRouter>`) and thread
-   `navigate` down as a prop. External `window.open` links need nothing.
+   `useNavigate()` / `useLocation()` / any `useContext` **throws** inside the
+   scene. Resolve router/nav in `SceneCanvas` (outside `<Canvas>`, inside
+   `<BrowserRouter>`) and thread `navigate` down as a prop. External
+   `window.open` links need nothing.
 2. **SVG is y-down.** Handled by the negative-y scale on the normalise group.
    If a logo renders upside down, its paths were pre-flipped in the file —
    remove the flip there.
