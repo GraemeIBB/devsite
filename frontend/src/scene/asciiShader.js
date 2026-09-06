@@ -106,6 +106,70 @@ export function surfaceColor(hex) {
 	return m;
 }
 
+// image texture, still "flat" to the ascii pass (alpha 0.66) like surfaceColor
+// — the ascii pass only ever samples one texel per glyph cell, so at typical
+// cell sizes (6px) fine texture detail (grout lines, tile seams) mostly won't
+// survive; it reads as blocky colour regions, not a crisp photo. `repeat`
+// tiles the image [u, v] times across the mesh's own UV range — baked into the
+// vertex shader, not left on the texture: `texture.repeat`/`.offset` only ever
+// get consumed by three's built-in material shader chunks, so a raw
+// ShaderMaterial like this one silently ignores them and shows one stretched,
+// untiled copy. each repeated cell gets a random 90°-rotation + horizontal
+// flip (hashed from its integer cell coord) so the repetition doesn't read as
+// an obvious grid — sampled from the cell's own local uv, not the wrapped
+// global one, so RepeatWrapping is unused here (kept only as a safety net).
+// `saturation`: 1 = untouched, >1 boosts (luma-preserving mix).
+const texCache = new Map();
+export function surfaceTexture(url, repeat = [1, 1], saturation = 1) {
+	const key = `${url}:${repeat[0]}:${repeat[1]}:${saturation}`;
+	let m = texCache.get(key);
+	if (!m) {
+		const tex = new THREE.TextureLoader().load(url);
+		tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+		tex.colorSpace = THREE.SRGBColorSpace;
+		m = new THREE.ShaderMaterial({
+			vertexShader: /* glsl */ `
+				varying vec3 vVN;
+				varying vec2 vUv;
+				void main() {
+					vVN = normalize(normalMatrix * normal);
+					vUv = uv * vec2(${repeat[0].toFixed(4)}, ${repeat[1].toFixed(4)});
+					gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+				}
+			`,
+			fragmentShader: /* glsl */ `
+				uniform sampler2D uTex;
+				varying vec3 vVN;
+				varying vec2 vUv;
+
+				float hash(vec2 p) {
+					return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+				}
+
+				void main() {
+					vec2 cell = floor(vUv);
+					vec2 cellUv = fract(vUv);
+					float rot = hash(cell) * 4.0;
+					if (rot < 1.0) cellUv = cellUv;
+					else if (rot < 2.0) cellUv = vec2(cellUv.y, 1.0 - cellUv.x);
+					else if (rot < 3.0) cellUv = 1.0 - cellUv;
+					else cellUv = vec2(1.0 - cellUv.y, cellUv.x);
+					if (hash(cell + 17.0) < 0.5) cellUv.x = 1.0 - cellUv.x;
+
+					vec3 base = texture2D(uTex, cellUv).rgb;
+					float luma = dot(base, vec3(0.299, 0.587, 0.114));
+					base = mix(vec3(luma), base, ${saturation.toFixed(4)});
+					float f = smoothstep(0.35, 0.8, vVN.z); // 1 = cap, 0 = side
+					gl_FragColor = vec4(base * mix(${SIDE_MUL.toFixed(2)}, 1.0, f), 0.66);
+				}
+			`,
+			uniforms: { uTex: { value: tex } },
+		});
+		texCache.set(key, m);
+	}
+	return m;
+}
+
 // flat colour pinned at the SIDE_MUL tone always — for a face a front-on
 // camera can never actually see edge-on (a slab's top), so a thin front-facing
 // strip stands in for it: shaded like a side face, reading as a raised/shadowed

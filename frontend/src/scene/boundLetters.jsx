@@ -63,11 +63,10 @@ function BoundLetter({ font, char, factor, x, anchorY, chainLen, frozen }) {
 			const m = links.current[i]
 			if (!m) continue
 			const t = i / (LINKS - 1)
-			m.position.set(
-				a.x + seg.x * t,
-				a.y + seg.y * t - sag * 4 * t * (1 - t),
-				a.z + seg.z * t,
-			)
+			// floor: the sag belly can otherwise dip a link below the sea floor —
+			// the anchor's own y (it sits on the floor) is the clamp
+			const y = Math.max(a.y + seg.y * t - sag * 4 * t * (1 - t), a.y)
+			m.position.set(a.x + seg.x * t, y, a.z + seg.z * t)
 		}
 	})
 

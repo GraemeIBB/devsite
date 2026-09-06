@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, useRapier } from '@react-three/rapier'
-import { surfaceColor, surfaceColorSide } from './asciiShader'
+import { surfaceColor, surfaceTexture } from './asciiShader'
 import { GATE, OKMR, OKMR_BLEED, PIT, okmrLeftX, okmrRightX, visibleHalfHeight } from './config'
 import { getWaterLevel, setWaterSurfaceY } from './waterLevel'
 
@@ -14,17 +14,16 @@ import { getWaterLevel, setWaterSurfaceY } from './waterLevel'
 
 const REST_MID = OKMR.surfaceY - OKMR.depth / 2
 const FLOOR_CENTER = OKMR.surfaceY - OKMR.depth - OKMR.floorHalfH
-// waterline lip: a thin strip at the slab's top edge, forced to the SIDE_MUL
-// tone (see surfaceColorSide) — the top face itself is edge-on to this camera
-// and never visible, so this stands in for it and gives the surface a shaded,
-// raised-looking edge instead of reading as flat.
-const LIP_H = 0.3
 // sit the slab behind the z=0 actor plane so letters / the AUV render in front
 // of the water, not occluded by it (the ascii pass has no alpha blend). the
 // gate's two posts straddle z=0 (gate.jsx — the AUV's z is locked there), so
 // the slab's front face has to clear the far post too, not just z=0.
 const GATE_FAR_Z = 1.55 * GATE.scale // far post centre + its own half-thickness
 const SLAB_Z = -OKMR.slabZ / 2 - Math.max(0.5, GATE_FAR_Z + 0.5)
+
+// pool-tile preview (slab material, below)
+const TILE = 3 // world units per tile
+const SATURATION = 1.6
 
 export function Water() {
 	const { world } = useRapier()
@@ -79,17 +78,16 @@ export function Water() {
 			<mesh
 				ref={slab}
 				position={[centerX, REST_MID - rise, SLAB_Z]}
-				material={surfaceColor(OKMR.color)}
+				// preview: pool-tile texture in place of the flat colour — see if
+				// it's a fit for the back water face before committing to it
+				material={surfaceTexture(
+					'/textures/pool-tiles.jpg',
+					[width / TILE, OKMR.depth / TILE],
+					SATURATION,
+				)}
 				dispose={null}
 			>
 				<boxGeometry args={[width, OKMR.depth, OKMR.slabZ]} />
-				<mesh
-					material={surfaceColorSide(OKMR.color)}
-					position={[0, OKMR.depth / 2 - LIP_H / 2, 0.05]}
-					dispose={null}
-				>
-					<boxGeometry args={[width, LIP_H, OKMR.slabZ]} />
-				</mesh>
 			</mesh>
 			<RigidBody
 				ref={floor}

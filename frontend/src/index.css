@@ -1,3 +1,10 @@
+/* monogram: free monospace pixel font, https://itch.io/t/214662/monogram-a-free-monospace-pixel-font */
+@font-face {
+	font-family: "monogram";
+	src: url("/fonts/monogram.ttf") format("truetype");
+	font-display: swap;
+}
+
 :root {
 	margin: 0;
 	background-color: rgb(0, 0, 0);

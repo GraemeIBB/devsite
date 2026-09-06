@@ -3,6 +3,9 @@
 
 export const FONT = "/fonts/helvetiker_bold.typeface.json";
 
+// Callout's default DOM font — pixel monospace, see index.css's @font-face
+export const FONT_MONOGRAM = "'monogram', ui-monospace, monospace";
+
 export const BASE = 1.5; // GRAEME letter size
 
 // a word taller than wide -> drops in as two stacked rows (top row lands on the

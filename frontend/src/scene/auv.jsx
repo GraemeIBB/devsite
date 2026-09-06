@@ -8,6 +8,7 @@ import { pid } from './pid'
 import { useStaged } from './useStaged'
 import { getWaterSurfaceY } from './waterLevel'
 import { setAuvX } from './auvTrack'
+import Callout from './Callout'
 
 const NO_BUOYANCY = { noBuoyancy: true } // water.jsx skips this body — the AUV flies itself
 
@@ -140,41 +141,50 @@ export function Auv({ level = 0 }) {
 	})
 
 	return (
-		<RigidBody
-			ref={body}
-			// parked as a fixed body above the frame until its level releases it
-			type={released ? 'dynamic' : 'fixed'}
-			userData={NO_BUOYANCY}
-			position={[AUV.position[0], AUV.position[1], 0]}
-			rotation={[0, 0, AUV.spin]}
-			colliders={false}
-			ccd
-			enabledTranslations={[true, true, false]}
-			enabledRotations={[false, false, true]} // z only — heading PD drives it
-			restitution={0.15}
-			friction={0.8}
-			linearDamping={1.1}
-			angularDamping={3}
-		>
-			{/* box ~ rails + thruster spread + DVL nub — model is rolled 180° below,
-			    so its mass sits at -0.05*s */}
-			<CuboidCollider args={[0.3 * s, 0.16 * s, 0.2 * s]} position={[0, -0.05 * s, 0]} />
-			{/* invisible grab target */}
-			<mesh
-				position={[0, -0.05 * s, 0]}
-				onPointerDown={(e) => grab(e, body.current)}
-				{...hoverCursor}
+		<>
+			<RigidBody
+				ref={body}
+				// parked as a fixed body above the frame until its level releases it
+				type={released ? 'dynamic' : 'fixed'}
+				userData={NO_BUOYANCY}
+				position={[AUV.position[0], AUV.position[1], 0]}
+				rotation={[0, 0, AUV.spin]}
+				colliders={false}
+				ccd
+				enabledTranslations={[true, true, false]}
+				enabledRotations={[false, false, true]} // z only — heading PD drives it
+				restitution={0.15}
+				friction={0.8}
+				linearDamping={1.1}
+				angularDamping={3}
 			>
-				<boxGeometry args={[0.6 * s, 0.32 * s, 0.4 * s]} />
-				<meshBasicMaterial colorWrite={false} depthWrite={false} />
-			</mesh>
-			<group scale={s} rotation={[AUV.tilt[0], AUV.tilt[1], 0]}>
-				{/* the .scn remap came out inverted — roll 180° about the nose axis
-				    (keeps +x forward, no negative scale so normals stay correct) */}
-				<group rotation={[Math.PI, 0, 0]}>
-					<Body />
+				{/* box ~ rails + thruster spread + DVL nub — model is rolled 180° below,
+				    so its mass sits at -0.05*s */}
+				<CuboidCollider args={[0.3 * s, 0.16 * s, 0.2 * s]} position={[0, -0.05 * s, 0]} />
+				{/* invisible grab target */}
+				<mesh
+					position={[0, -0.05 * s, 0]}
+					onPointerDown={(e) => grab(e, body.current)}
+					{...hoverCursor}
+				>
+					<boxGeometry args={[0.6 * s, 0.32 * s, 0.4 * s]} />
+					<meshBasicMaterial colorWrite={false} depthWrite={false} />
+				</mesh>
+				<group scale={s} rotation={[AUV.tilt[0], AUV.tilt[1], 0]}>
+					{/* the .scn remap came out inverted — roll 180° about the nose axis
+					    (keeps +x forward, no negative scale so normals stay correct) */}
+					<group rotation={[Math.PI, 0, 0]}>
+						<Body />
+					</group>
 				</group>
-			</group>
-		</RigidBody>
+			</RigidBody>
+			{/* Callout test wiring — trails the AUV's RigidBody, drop once it's proven out */}
+			{released && (
+				<Callout target={body} pinOffset={[0, 0.15 * s, 0]} offset={[1.2, 1
+				]}>
+					ogopogo
+				</Callout>
+			)}
+		</>
 	)
 }
