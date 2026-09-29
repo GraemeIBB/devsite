@@ -86,17 +86,27 @@ export function Auv({ level = 0 }) {
 
 	useEffect(() => {
 		const down = (e) => {
+			if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return // console has focus — don't steal keys or block typing
 			const k = KEYMAP[e.code]
 			if (!k) return
 			keys.current.add(k)
 			e.preventDefault()
 		}
 		const up = (e) => keys.current.delete(KEYMAP[e.code])
+		// tabbing/alt-tabbing away while a key is held never delivers its keyup
+		// (focus moved elsewhere) — without this, `keys` still reports it held
+		// on return and targetY keeps ramping every frame from then on, flying
+		// the AUV off with no key actually pressed.
+		const clear = () => keys.current.clear()
 		window.addEventListener('keydown', down)
 		window.addEventListener('keyup', up)
+		window.addEventListener('blur', clear)
+		document.addEventListener('visibilitychange', clear)
 		return () => {
 			window.removeEventListener('keydown', down)
 			window.removeEventListener('keyup', up)
+			window.removeEventListener('blur', clear)
+			document.removeEventListener('visibilitychange', clear)
 		}
 	}, [])
 

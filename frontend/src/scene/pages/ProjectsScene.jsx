@@ -19,9 +19,10 @@ const card = (label) => (
 
 // placeholder content — off-white slabs (Box default) + a floating label
 const PROJECTS = [
-	{ id: 'p1', content: card('project one') },
-	{ id: 'p2', content: card('project two') },
-	{ id: 'p3', content: card('project three') },
+	// slug -> /devlog/<slug> (a key in src/devlog.json; missing = stub page)
+	{ id: 'p1', slug: 'marine-robotics', content: card('marine robotics') },
+	{ id: 'p2', slug: 'project-two', content: card('project two') },
+	{ id: 'p3', slug: 'project-three', content: card('project three') },
 ]
 
 // PROJECTS text lands left. the back button comes in with it (level 0). portrait:
@@ -56,7 +57,11 @@ export default function ProjectsScene({ portrait, navigate }) {
 				spacing={portrait ? 0.9 : 1.75}
 				rows={portrait ? 2 : 1}
 			/>
-			<ProjectBoxes items={PROJECTS} portrait={portrait} />
+			<ProjectBoxes
+				items={PROJECTS}
+				portrait={portrait}
+				onSelect={(p) => navigate(`/devlog/${p.slug}`)}
+			/>
 			<SceneObjects
 				items={[portrait ? backPortrait : backLandscape]}
 				navigate={navigate}

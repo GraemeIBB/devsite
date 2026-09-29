@@ -25,4 +25,9 @@ export const SCENE_BOUNDS = {
 	'/okmr': OkmrWalls,
 }
 
+// devlog routes are text-grid pages (Devlog.jsx): the scene behind them is empty
+const EmptyScene = () => null
+export const resolvePage = (path) =>
+	PAGES[path] ?? (path.startsWith('/devlog/') ? EmptyScene : WordScene)
+
 export { WordScene }

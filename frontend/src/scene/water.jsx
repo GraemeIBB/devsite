@@ -1,13 +1,28 @@
 import { useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, useRapier } from '@react-three/rapier'
-import { surfaceColor, surfaceTexture } from './asciiShader'
-import { GATE, OKMR, OKMR_BLEED, PIT, okmrLeftX, okmrRightX, visibleHalfHeight } from './config'
+import { surfaceTexture } from './asciiShader'
+import {
+	CLEAR_MARGIN,
+	GATE,
+	OKMR,
+	OKMR_BLEED,
+	PIT,
+	okmrLeftX,
+	okmrRightX,
+	visibleHalfHeight,
+} from './config'
 import { getWaterLevel, setWaterSurfaceY } from './waterLevel'
+import { isFocused } from './focus'
 
 // the okmr body of water: a flat-shaded slab (#03b787) with a kinematic
 // sea-floor collider at its base. both track the shared 0..1 level (waterLevel.js)
-//   0 = surface parked just below the frame (nothing to stand on)
+//   0 = surface parked past ClearWatch's own clearance margin, not just past
+//       the raw edge — the AUV only free-falls once it's above this surface
+//       (see auv.jsx), so a surface that's barely past the edge leaves the AUV
+//       stuck controlled/hovering right at the edge instead of continuing
+//       past ClearWatch's threshold. parking the surface past that threshold
+//       up front means losing control also means already being clear.
 //   1 = rest pose (surface at OKMR.surfaceY, sea floor OKMR.depth below it)
 // OkmrScene drives it to 1 (rise); exits/drain drives it to 0 (sink out the
 // bottom — everything riding the sea floor goes with it).
@@ -31,8 +46,8 @@ export function Water() {
 	const slab = useRef()
 	const floor = useRef()
 	const lvl = useRef(0)
-	// travel from "surface one unit below the frame" up to the rest pose
-	const rise = visibleHalfHeight() + 1 + OKMR.surfaceY
+	// travel from "surface past ClearWatch's clearance margin" up to the rest pose
+	const rise = visibleHalfHeight() + CLEAR_MARGIN + OKMR.surfaceY
 
 	// spans the whole level (okmrLeftX -> okmrRightX), bleeding past both ends
 	// same as the old fixed-width slab did past the single-screen walls
@@ -42,6 +57,11 @@ export function Water() {
 	const centerX = (left + right) / 2
 
 	useFrame((_, dt) => {
+		// tab backgrounded: <Physics paused> already stops rapier stepping —
+		// skip our own impulses too, else this still shoves a multi-second dt's
+		// worth of buoyancy into every body's velocity, landing in one shot the
+		// moment stepping resumes. see focus.js.
+		if (!isFocused()) return
 		lvl.current +=
 			(getWaterLevel() - lvl.current) * Math.min(1, dt * OKMR.riseSpeed)
 		const dy = (lvl.current - 1) * rise
@@ -97,7 +117,17 @@ export function Water() {
 				friction={0.8}
 			>
 				<CuboidCollider args={[width / 2, OKMR.floorHalfH, PIT.floor.halfD]} />
-				<mesh material={surfaceColor(OKMR.floorColor)} dispose={null}>
+				{/* same pool-tile texture + tile scale as the back slab, on the top
+				    face — reads as one continuous tiled pool instead of a flat floor
+				    colour, and gives the water some depth perspective */}
+				<mesh
+					material={surfaceTexture(
+						'/textures/pool-tiles.jpg',
+						[width / TILE, (PIT.floor.halfD * 2) / TILE],
+						SATURATION,
+					)}
+					dispose={null}
+				>
 					<boxGeometry
 						args={[width, OKMR.floorHalfH * 2, PIT.floor.halfD * 2]}
 					/>

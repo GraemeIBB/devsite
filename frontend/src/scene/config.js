@@ -188,7 +188,6 @@ export const DRAG = { stiff: 90, damp: 12, maxImpulse: 8 };
 // the reverse). all tunable; `surfaceY - depth` is the sea floor.
 export const OKMR = Object.freeze({
   color: "#65bbdd", // sea green
-  floorColor: "#0b2b4a", // dark blue sea floor
   surfaceY: 2, // water-surface rest height (world y) — ~2/3 up the frame
   depth: 7, // surface -> sea floor (floor top y = -5)
   screens: 3, // level width, in screens — the camera pans across it (see okmrRightX, SceneCanvas' CameraRig)
@@ -201,6 +200,9 @@ export const OKMR = Object.freeze({
   buoyDamp: 5, // vertical-velocity drag while submerged
   buoyMax: 3, // submersion depth the lift saturates at
   buoyPoint: 0.6, // apply the lift this far above the body origin (keeps bodies upright)
+  buoyTopLift: 7.5, // extra lift applied right at the letter's TOP edge (boundLetters.jsx
+  //                  only), on top of the generic per-body buoyancy above — makes them
+  //                  float up noticeably eagerly instead of just bobbing at buoyPoint
   chain: 4.5, // bound-letter tether length (anchor -> letter's bottom edge);
   //             shorter than the free-float distance, so it holds letters low + upright
   fadeMs: 800, // bound letters dissolve in over this long once unfrozen

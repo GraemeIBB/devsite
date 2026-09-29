@@ -262,6 +262,9 @@ export function makeAsciiShader({
 			// screen-space v (0 bottom -> 1 top) of the okmr waterline; -Infinity
 			// off-okmr so the tint below never trips. set live in SceneCanvas.
 			uWaterLineV: { value: -Infinity },
+				// 1 = all cells drawn, 0 = none. cells drop out on a stipple hash (whole-
+				// scene dither-out, same look as surfaceFade). driven by dither.js.
+				uFade: { value: 1 },
 		},
 		vertexShader: /* glsl */ `
 			varying vec2 vUv;
@@ -285,9 +288,12 @@ export function makeAsciiShader({
 			uniform vec3 uSunDir;
 			uniform vec3 uWaterTint;
 			uniform float uWaterLineV;
+				uniform float uFade;
 			varying vec2 vUv;
 
-			// 4x4 Bayer via recursion, no arrays (WebGL1-safe)
+			float h21(vec2 p) { return fract(sin(dot(p, vec2(41.13, 289.7))) * 43758.5); }
+
+				// 4x4 Bayer via recursion, no arrays (WebGL1-safe)
 			float b2(vec2 p) { return mod(2.0 * p.x + 3.0 * p.y, 4.0); }
 			float bayer4(vec2 p) {
 				p = floor(mod(p, 4.0));
@@ -307,6 +313,7 @@ export function makeAsciiShader({
 				// alpha selects the mode (see surface materials); a ~ 0 = background.
 				// for two-tone, also reject rgb ~ 0 in case the clear alpha leaks.
 				bool bg = s.a < 0.1 || (s.a > 0.8 && length(s.rgb * 2.0 - 1.0) > 1.6);
+					if (uFade < 0.999 && h21(cellId) > uFade) bg = true;
 
 				vec3 tone = uInk;
 				float luma = 0.0;

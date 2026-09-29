@@ -7,11 +7,14 @@ import { makeAsciiShader } from './asciiShader'
 import { DragController } from './drag'
 import { Pit } from './pit'
 import ClearWatch from './ClearWatch'
-import { PAGES, WordScene, SCENE_BOUNDS } from './pages'
+import { resolvePage, SCENE_BOUNDS } from './pages'
+import { dither } from './dither'
 import { useSceneTransition } from './transition'
-import { ASCII, CAMERA, PHYSICS, okmrRightX, visibleHalfHeight, visibleHalfWidth } from './config'
+import { ASCII, CAMERA, okmrRightX, visibleHalfHeight, visibleHalfWidth } from './config'
 import { getAuvX } from './auvTrack'
 import { getWaterSurfaceY } from './waterLevel'
+import { useLive } from './liveConfig'
+import { setFocused } from './focus'
 
 // window size + orientation. a portrait<->landscape flip remounts the active
 // page (below) so its letters re-lay for the new aspect.
@@ -44,10 +47,47 @@ function useViewport() {
 	return vp
 }
 
+// backgrounded tab -> rAF throttles or stops -> the frame you get back on
+// focus can report a multi-second `delta`, and physics reacts to that one
+// giant step as if it were normal. drives <Physics paused> (skips
+// world.step() outright — see World, below) and focus.js's module flag (for
+// the per-frame systems outside <Physics> itself, e.g. water.jsx's buoyancy
+// and boundLetters.jsx's chain spring, which apply their own impulses and
+// need to skip the same frame). NOT r3f's own frameloop: toggling that resets
+// the shared clock's elapsedTime to 0 on every transition, which every other
+// elapsedTime-based timer (e.g. the okmr letters' fade-in) treats as time
+// running backwards.
+//
+// visibilitychange alone only covers switching browser tabs / minimizing —
+// alt-tabbing to another OS-level app while this tab stays the active one in
+// the browser leaves document.hidden false, yet rAF still gets starved the
+// same way. document.hasFocus() catches that case too, so both are checked.
+function useFocused() {
+	const isFocused = () => !document.hidden && document.hasFocus()
+	const [focused, setFocusedState] = useState(isFocused)
+	useEffect(() => {
+		const onChange = () => {
+			const v = isFocused()
+			setFocused(v)
+			setFocusedState(v)
+		}
+		document.addEventListener('visibilitychange', onChange)
+		window.addEventListener('blur', onChange)
+		window.addEventListener('focus', onChange)
+		return () => {
+			document.removeEventListener('visibilitychange', onChange)
+			window.removeEventListener('blur', onChange)
+			window.removeEventListener('focus', onChange)
+		}
+	}, [])
+	return focused
+}
+
 // full-screen ascii pass: reads the world-normal G-buffer, shades it against a
 // sun down the camera's forward axis, draws glyphs.
 function AsciiEffects() {
 	const pass = useRef()
+	const cssFade = useRef(1)
 	const [shader] = useState(() => makeAsciiShader(ASCII))
 	const { size, viewport, camera } = useThree()
 
@@ -60,6 +100,11 @@ function AsciiEffects() {
 		const u = pass.current?.uniforms
 		if (!u) return
 		camera.getWorldDirection(u.uSunDir.value)
+		u.uFade.value = dither.scene
+		if (cssFade.current !== dither.scene) {
+			cssFade.current = dither.scene
+			document.documentElement.style.setProperty('--scene-fade', dither.scene)
+		}
 		// waterline, in screen-space v (0 bottom -> 1 top): where the okmr water
 		// surface (world y, tracked live in waterLevel.js) projects to at z=0 —
 		// the actor plane every submerged thing (AUV, gate, letters) sits near.
@@ -94,14 +139,15 @@ function CameraRig({ active }) {
 }
 
 function PageScene({ path, portrait, navigate }) {
-	const Page = PAGES[path] ?? WordScene
+	const Page = resolvePage(path)
 	return <Page path={path} portrait={portrait} navigate={navigate} />
 }
 
-function World({ portrait, navigate, shownPath, exit, clear }) {
+function World({ portrait, navigate, shownPath, exit, clear, focused }) {
+	const gravity = useLive('gravity')
 	const Bounds = SCENE_BOUNDS[shownPath] ?? Pit
 	return (
-		<Physics gravity={exit?.gravity ?? PHYSICS.gravity}>
+		<Physics gravity={exit?.gravity ?? gravity} paused={!focused}>
 			<DragController />
 			<PageScene
 				key={`${shownPath}|${portrait ? 'p' : 'l'}`}
@@ -112,7 +158,7 @@ function World({ portrait, navigate, shownPath, exit, clear }) {
 			{/* the active exit owns the bounds while it runs, else the scene's
 			    bounds (default pit, or a per-scene override) */}
 			{exit ? <exit.Stage portrait={portrait} /> : <Bounds portrait={portrait} />}
-			<ClearWatch active={!!exit} onClear={clear} />
+			<ClearWatch active={!!exit && !exit.timed} onClear={clear} />
 		</Physics>
 	)
 }
@@ -124,6 +170,7 @@ export default function SceneCanvas() {
 	// router reads live out here — context does not cross into <Canvas>
 	const navigate = useNavigate()
 	const { shownPath, exit, clear } = useSceneTransition()
+	const focused = useFocused()
 
 	return (
 		<div style={{ position: 'fixed', inset: 0, background: '#000' }}>
@@ -141,6 +188,7 @@ export default function SceneCanvas() {
 						shownPath={shownPath}
 						exit={exit}
 						clear={clear}
+						focused={focused}
 					/>
 				</Suspense>
 				<CameraRig active={shownPath === '/okmr'} />

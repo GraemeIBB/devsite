@@ -1,17 +1,34 @@
 import Navbar from './Navbar'
 import SceneCanvas from './scene/SceneCanvas'
-import { BrowserRouter } from 'react-router-dom'
+import Devlog from './Devlog'
+import TextSpike from './textgrid/TextSpike'
+import { BrowserRouter, useLocation } from 'react-router-dom'
 import './App.css'
 
 // the site is one persistent r3f scene. routes drive scene transitions
 // (scene/transition.js), not page swaps. legacy DOM pages (Home.jsx, Projects.jsx,
-// Stats/, ...) are superseded and left unimported.
+// Stats/, ...) are superseded and left unimported. Devlog is the one
+// exception — /devlog/<projectname> is a text-grid document (src/textgrid)
+// over the scene, mounted unconditionally like Navbar/Console and
+// self-guarding on route. /textspike is the standalone text-grid demo and
+// brings its own rendering, so the scene is skipped there.
+function Shell() {
+	const { pathname } = useLocation()
+	return (
+		<>
+			<Navbar />
+			{pathname !== '/textspike' && <SceneCanvas />}
+			<Devlog />
+			<TextSpike />
+		</>
+	)
+}
+
 function App() {
 	return (
 		<div className="container">
 			<BrowserRouter>
-				<Navbar />
-				<SceneCanvas />
+				<Shell />
 			</BrowserRouter>
 		</div>
 	)

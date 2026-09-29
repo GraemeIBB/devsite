@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import * as THREE from 'three'
 import { Html } from '@react-three/drei'
 import { surfaceColor } from './asciiShader'
 import { DEPTH } from './config'
 import SceneObject from './SceneObject'
+import { slabGeometry } from './slabGeometry'
 
 // a colourable, sizable rectangular slab — same plane-locked physics as every
 // other SceneObject, cuboid collider matched to the mesh.
@@ -12,47 +12,13 @@ import SceneObject from './SceneObject'
 // box): viewed dead-on a box shows only its flat face, but the chamfer's angled
 // facets let surfaceColor's cap/side shading read as depth, like the letters.
 // rounded outer corners soften the silhouette. `size` is [w, h] world units;
-// total depth is the shared DEPTH.
+// total depth is the shared DEPTH. geometry itself lives in slabGeometry.js so
+// other primitives (e.g. Callout) can share it.
 //
 // `children` render in a drei <Html transform> anchored to the slab front face —
 // real DOM (untouched by the ascii pass) but 3D-transformed, so it tracks the
 // slab's position AND rotation as physics tumbles it. shown only once live.
 // `distanceFactor` scales the content; bump it for larger text.
-
-const BEVEL = 0.12
-const geomCache = new Map()
-
-function slabGeometry(w, h, radius) {
-	const key = `${w}|${h}|${radius}`
-	let g = geomCache.get(key)
-	if (!g) {
-		const iw = Math.max(0.02, w / 2 - BEVEL)
-		const ih = Math.max(0.02, h / 2 - BEVEL)
-		const r = Math.max(0, Math.min(radius, iw - 0.01, ih - 0.01))
-		const s = new THREE.Shape()
-		// rounded rect centred on origin, half-extents iw/ih, corner r
-		s.moveTo(-iw + r, -ih)
-		s.lineTo(iw - r, -ih)
-		s.quadraticCurveTo(iw, -ih, iw, -ih + r)
-		s.lineTo(iw, ih - r)
-		s.quadraticCurveTo(iw, ih, iw - r, ih)
-		s.lineTo(-iw + r, ih)
-		s.quadraticCurveTo(-iw, ih, -iw, ih - r)
-		s.lineTo(-iw, -ih + r)
-		s.quadraticCurveTo(-iw, -ih, -iw + r, -ih)
-		g = new THREE.ExtrudeGeometry(s, {
-			depth: DEPTH - 2 * BEVEL,
-			bevelEnabled: true,
-			bevelSize: BEVEL,
-			bevelThickness: BEVEL,
-			bevelSegments: 2,
-			curveSegments: 6,
-		})
-		g.center()
-		geomCache.set(key, g)
-	}
-	return g
-}
 
 export default function Box({
 	size,
@@ -98,7 +64,7 @@ export default function Box({
 					// shifted toward screen centre
 					distanceFactor={10}
 					zIndexRange={[50, 0]}
-					style={{ pointerEvents: 'none' }}
+					style={{ pointerEvents: 'none', opacity: 'var(--scene-fade, 1)' }}
 				>
 					{children}
 				</Html>

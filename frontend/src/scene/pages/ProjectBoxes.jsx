@@ -15,7 +15,7 @@ const GAP = 0.35 // visible buffer between slabs (physics stays tight, see Box i
 const SLAB_START = 2 // stage level of the first slab (after title=0, back=1)
 const SLAB_STEP = 0.4 // fraction of STAGE_MS between successive slabs
 
-export default function ProjectBoxes({ items, portrait }) {
+export default function ProjectBoxes({ items, portrait, onSelect }) {
 	const size = useThree((s) => s.size)
 	const halfW = playHalfWidth(size, portrait)
 	const halfH = visibleHalfHeight()
@@ -30,11 +30,12 @@ export default function ProjectBoxes({ items, portrait }) {
 			portrait={portrait}
 			halfW={halfW}
 			halfH={halfH}
+			onSelect={onSelect}
 		/>
 	))
 }
 
-function Slab({ i, n, it, portrait, halfW, halfH }) {
+function Slab({ i, n, it, portrait, halfW, halfH, onSelect }) {
 	// level 0 = title + back button, then slabs SLAB_STEP*STAGE_MS apart
 	const released = useStaged(SLAB_START + i * SLAB_STEP)
 
@@ -67,6 +68,7 @@ function Slab({ i, n, it, portrait, halfW, halfH }) {
 			color={it.color}
 			position={[x, y]}
 			frozen={!released}
+			onClick={onSelect && (() => onSelect(it))}
 		>
 			{it.content}
 		</Box>
