@@ -92,6 +92,11 @@ function AsciiEffects({ idle }) {
 	const cssFade = useRef(1)
 	const [shader] = useState(() => makeAsciiShader(ASCII))
 	const { size, viewport, camera } = useThree()
+	const fill = useLive('fill')
+
+	useEffect(() => {
+		if (pass.current) pass.current.uniforms.uFill.value = fill
+	}, [fill])
 
 	useEffect(() => {
 		const dpr = viewport.dpr

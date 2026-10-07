@@ -3,9 +3,12 @@
 // setLive — keeps future tunables (wind, time-scale, whatever) from needing
 // bespoke plumbing through every consumer.
 import { useSyncExternalStore } from 'react'
-import { PHYSICS } from './config'
+import { ASCII, PHYSICS } from './config'
 
-const values = new Map([['gravity', PHYSICS.gravity]])
+const values = new Map([
+	['gravity', PHYSICS.gravity],
+	['fill', ASCII.fill],
+])
 const listeners = new Map() // key -> Set<() => void>
 
 function subscribers(key) {

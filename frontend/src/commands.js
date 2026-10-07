@@ -5,7 +5,7 @@
  * }
  */
 import { getLive, setLive } from "./scene/liveConfig";
-import { PHYSICS } from "./scene/config";
+import { ASCII, PHYSICS } from "./scene/config";
 
 const BACKEND = `http://${window.location.hostname}:5000`;
 
@@ -43,6 +43,20 @@ const commands = {
 			if (Number.isNaN(n)) return `gravity: expected a number, got "${arg}"`;
 			setLive("gravity", [0, -n, 0]);
 			return `gravity set to ${n}`;
+		},
+	},
+	fill: {
+		description: "fill <0..1>|'reset' — scene colour behind glyphs",
+		run: ([arg]) => {
+			if (arg === "reset") {
+				setLive("fill", ASCII.fill);
+				return `fill reset to ${ASCII.fill}`;
+			}
+			if (arg === undefined) return `fill: ${getLive("fill")}`;
+			const n = Number(arg);
+			if (Number.isNaN(n)) return `fill: expected a number, got "${arg}"`;
+			setLive("fill", Math.min(1, Math.max(0, n)));
+			return `fill set to ${Math.min(1, Math.max(0, n))}`;
 		},
 	},
 	repogrep: {
