@@ -3,9 +3,16 @@
 
 <head>
 	<meta charset="UTF-8" />
-	<link href="https://fonts.googleapis.com/css?family=Roboto Mono" rel="stylesheet" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet" />
 	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<!-- viewport-fit=cover: draw under the notch / home bar (safe-area insets keep UI clear) -->
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+	<meta name="theme-color" content="#000000" />
+	<!-- launched from the home screen: no safari UI at all -->
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 	<title>frontend</title>
 </head>
 

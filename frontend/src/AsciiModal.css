@@ -1,0 +1,79 @@
+/* ascii frame: edges are clipped runs of '-' / '|' so the box stays responsive */
+.amodal-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 100; /* above console (3) and drei Html callouts (<=60) */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	background: rgba(0, 0, 0, 0.6);
+}
+
+.amodal-box {
+	width: min(44ch, 100%);
+	font-family: "monogram", monospace;
+	font-size: 20px;
+	line-height: 1;
+	color: white;
+	background: black;
+}
+
+.amodal-edge,
+.amodal-mid {
+	display: flex;
+}
+
+.amodal-h {
+	flex: 1;
+	overflow: hidden;
+	white-space: nowrap;
+}
+.amodal-h::before {
+	content: "--------------------------------------------------------------------------------------------------------------------------------";
+}
+
+.amodal-v {
+	position: relative;
+	flex: 0 0 1ch;
+	overflow: hidden;
+}
+/* absolute so the long run doesn't stretch the row; clipped to body height */
+.amodal-v::before {
+	position: absolute;
+	inset: 0;
+	white-space: pre;
+	content: "|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A|\A";
+}
+
+.amodal-body {
+	flex: 1;
+	min-width: 0;
+	padding: 1em 1ch;
+	line-height: 1.2;
+}
+
+.amodal-title {
+	margin-bottom: 1em;
+}
+
+.amodal-body p {
+	margin: 0 0 1em;
+}
+
+.amodal-ok {
+	display: block;
+	margin: 0 auto;
+	padding: 0 0.5ch;
+	font: inherit;
+	color: inherit;
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+.amodal-ok:hover,
+.amodal-ok:focus-visible {
+	color: black;
+	background: white;
+	outline: none;
+}

@@ -6,7 +6,7 @@ function Logs() {
 	const [selectedProj, setSelectedProj] = useState(null)
 	const [selectedLog, setSelectedLog] = useState(null)
 	const [resolvedContent, setResolvedContent] = useState([])
-	const BACKEND = "http://localhost:5000"
+	const BACKEND = `http://${window.location.hostname}:5000`
 
 	useEffect(() => {
 		if (!selectedProj) return

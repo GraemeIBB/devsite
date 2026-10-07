@@ -1,0 +1,13 @@
+/* invisible hit area — the visuals are JoystickMesh, drawn through the ascii pass */
+.joystick {
+	position: fixed;
+	left: max(24px, env(safe-area-inset-left));
+	bottom: max(24px, env(safe-area-inset-bottom));
+	z-index: 2; /* over the canvas, under the console (3) */
+	width: 120px;
+	height: 120px;
+	border-radius: 50%;
+	touch-action: none; /* no scroll/zoom stealing the drag */
+	user-select: none;
+	-webkit-user-select: none;
+}

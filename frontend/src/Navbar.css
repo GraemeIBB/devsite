@@ -1,5 +1,9 @@
 .navbar-body {
 	padding: 5px 1px;
+	/* viewport-fit=cover (index.html): keep links out from under the notch */
+	padding-left: max(1px, env(safe-area-inset-left));
+	padding-right: max(1px, env(safe-area-inset-right));
+	padding-top: max(5px, env(safe-area-inset-top));
 	display: flex;
 	justify-content: space-evenly;
 	align-items: center;

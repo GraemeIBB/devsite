@@ -11,6 +11,8 @@ function elapsed(timestamp) {
   return [d, h, m, s].map(n => String(n).padStart(2, '0')).join(':')
 }
 
+const BACKEND = `http://${window.location.hostname}:5000`
+
 function Stats() {
   const [stats, setStats] = useState(null)
   const [, setTick] = useState(0)
@@ -18,7 +20,7 @@ function Stats() {
 
   useEffect(() => {
     const fetchStats = () =>
-      fetch('http://localhost:5000/stats')
+      fetch(`${BACKEND}/stats`)
         .then(res => res.json())
         .then(data => setStats(data))
 
@@ -33,7 +35,7 @@ function Stats() {
   }, [])
 
   useEffect(() => {
-    const socket = io('http://localhost:5000')
+    const socket = io(BACKEND)
     socket.on('crashout_update', (data) => setCrashout(data.minutes))
     return () => socket.disconnect()
   }, [])
