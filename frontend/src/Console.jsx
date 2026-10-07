@@ -36,15 +36,33 @@ function Line({ line }) {
 	return <div className="console-line console-output">{highlight(line.text, line.highlight)}</div>
 }
 
+// up-arrow history survives closing the console (it unmounts) and reloads;
+// per tab. capped so a long session doesn't grow it forever.
+const HISTORY_KEY = 'consoleHistory'
+const HISTORY_MAX = 100
+
+function loadHistory() {
+	try {
+		const h = JSON.parse(sessionStorage.getItem(HISTORY_KEY))
+		return Array.isArray(h) ? h : []
+	} catch {
+		return []
+	}
+}
+
 function Console() {
 	const [lines, setLines] = useState([])
 	const [input, setInput] = useState("")
-	const [history, setHistory] = useState([])
+	const [history, setHistory] = useState(loadHistory)
 	const [historyPos, setHistoryPos] = useState(-1) // -1 = live draft, else index from the end of history
 	const [pending, setPending] = useState(false) // an async command (grep, repos) is in flight
 	const inputRef = useRef(null)
 	const scrollRef = useRef(null)
 	const draftRef = useRef("") // input saved when history browsing starts, restored on the way back down
+
+	useEffect(() => {
+		try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(history)) } catch {}
+	}, [history])
 
 	useEffect(() => {
 		inputRef.current?.focus()
@@ -110,7 +128,7 @@ function Console() {
 			if (pending) return; // command in flight — input's locked (readOnly) anyway
 			const trimmed = input.trim()
 			setLines((ls) => [...ls, { type: 'command', text: input }]);
-			if (trimmed) setHistory((h) => [...h, trimmed]);
+			if (trimmed) setHistory((h) => [...h, trimmed].slice(-HISTORY_MAX));
 			setHistoryPos(-1);
 			draftRef.current = "";
 			setInput("");
