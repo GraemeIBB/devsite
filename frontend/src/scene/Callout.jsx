@@ -9,8 +9,8 @@ import { slabGeometry } from './slabGeometry'
 // a floating label wired to a moving point: a leader line + a small slab, both
 // real scene geometry so they go through the ascii pass like everything else
 // (no crisp DOM line/box floating on top of the glyphs). only the text itself
-// stays DOM — a drei <Html transform> anchored to the slab's front face, same
-// trick as <Box>, so it tracks the slab's position every frame but renders
+// stays DOM — a screen-space drei <Html> pinned to the slab's front face (like
+// <Box>, minus its 3D-CSS transform mode), so it tracks the slab's position every frame but renders
 // as real, crisp text.
 //
 // `target`: a ref to a rapier RigidBody (its `.translation()` is read every
@@ -143,6 +143,11 @@ export default function Callout({
 	children,
 }) {
 	const camera = useThree((s) => s.camera)
+	const viewHeight = useThree((s) => s.size.height)
+	// screen-space Html scales content by distanceFactor / (2·tan(fov/2)·dist),
+	// i.e. 1 css px = distanceFactor / viewHeight world units. rescale so that's
+	// distanceFactor / 400 — the ratio pxToWorld (and transform mode) uses
+	const htmlDistance = (distanceFactor * viewHeight) / 400
 	const seg1 = useRef()
 	const seg2 = useRef()
 	const joint = useRef()
@@ -210,7 +215,7 @@ export default function Callout({
 
 		if (boxRef.current) {
 			boxRef.current.position.copy(lerped.current)
-			// force it fresh this frame — <Html transform> reads matrixWorld during
+			// force it fresh this frame — <Html> reads matrixWorld during
 			// the same render pass, same reason Callout used to force the camera's
 			boxRef.current.updateMatrixWorld()
 		}
@@ -229,14 +234,16 @@ export default function Callout({
 			/>
 			<group ref={boxRef}>
 				<mesh geometry={slabGeo} material={boxMat} dispose={null} />
-				{/* ref -> the actual styled content div (Html renders `style`/children
-				    straight onto it in transform mode) — what we measure to size the slab */}
+				{/* screen-space Html (no `transform`): one projected point + a 2D
+				    translate/scale. transform mode stacks matrix3d under a large CSS
+				    perspective, which mobile Safari resolves off (label sat low/right
+				    of the slab). `htmlDistance` keeps the text the same world size the
+				    transform mode gave (see pxToWorld). */}
 				<Html
 					ref={setContentEl}
-					transform
 					center
 					position={[0, 0, DEPTH / 2]}
-					distanceFactor={distanceFactor}
+					distanceFactor={htmlDistance}
 					zIndexRange={[60, 0]} // above Box's [50, 0] — a callout always wins ties, regardless of distance
 					style={{
 						pointerEvents: 'none',
@@ -250,7 +257,10 @@ export default function Callout({
 						lineHeight: 1, // tight, so there's minimal asymmetric leading to center wrong
 					}}
 				>
-					{children}
+					{/* trim the line box to cap-height..baseline: iOS and desktop read the
+					    font's ascent/descent from different tables, so a metrics-sized
+					    line box centres the glyphs differently per platform */}
+					<span style={{ display: 'block', textBox: 'trim-both cap alphabetic' }}>{children}</span>
 				</Html>
 			</group>
 		</>

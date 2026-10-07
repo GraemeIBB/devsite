@@ -3,6 +3,7 @@ import SceneCanvas from './scene/SceneCanvas'
 import DocPage from './DocPage'
 import TextSpike from './textgrid/TextSpike'
 import FpsWarning from './FpsWarning'
+import OkmrPortrait from './OkmrPortrait'
 import { BrowserRouter, useLocation } from 'react-router-dom'
 import './App.css'
 
@@ -22,6 +23,7 @@ function Shell() {
 			<DocPage />
 			<TextSpike />
 			<FpsWarning />
+			<OkmrPortrait />
 		</>
 	)
 }

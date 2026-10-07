@@ -148,13 +148,27 @@ export const PIT = Object.freeze({
 // perspective camera. `followLerp`: how fast the okmr camera rig (SceneCanvas)
 // eases toward its target x (/s, exp-approach — see water.jsx's riseSpeed for
 // the same pattern).
-export const CAMERA = Object.freeze({ z: 13, fov: 45, followLerp: 3 });
+// `z` is the distance at `refAspect` and narrower. wider than that (landscape
+// phones), the camera dollies in so the side shoulders past the pit walls don't
+// balloon: z *= (refAspect / aspect) ^ wideFit. wideFit 0 = never moves, 1 =
+// visible width locked to refAspect's (crops the most height).
+export const CAMERA = Object.freeze({ z: 13, fov: 45, followLerp: 3, refAspect: 16 / 9, wideFit: 0.75 });
+
+// current window aspect, module-scoped (same pattern as waterLevel.js) so the
+// size-less helpers below stay size-less. set by SceneCanvas on resize, before
+// the scene renders.
+let aspect = CAMERA.refAspect;
+export const setAspect = (a) => {
+  aspect = a;
+};
+export const cameraZ = () =>
+  CAMERA.z * Math.pow(Math.min(1, CAMERA.refAspect / aspect), CAMERA.wideFit);
 
 // visible half-extents at the z=0 drag plane. constant as the camera pans in y,
 // so from fov + z (+ pixel aspect for width), not r3f's viewport helper.
-// vertical fov is fixed, so height is the same on every window size.
+// vertical fov is fixed; height only shrinks on wide screens (cameraZ).
 export const visibleHalfHeight = () =>
-  Math.tan((CAMERA.fov * Math.PI) / 360) * CAMERA.z;
+  Math.tan((CAMERA.fov * Math.PI) / 360) * cameraZ();
 export const visibleHalfWidth = (size) =>
   visibleHalfHeight() * (size.width / size.height);
 

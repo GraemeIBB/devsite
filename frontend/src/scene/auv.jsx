@@ -8,6 +8,7 @@ import { pid } from './pid'
 import { useStaged } from './useStaged'
 import { getWaterSurfaceY } from './waterLevel'
 import { setAuvX } from './auvTrack'
+import { getStick } from './auvInput'
 import Callout from './Callout'
 
 const NO_BUOYANCY = { noBuoyancy: true } // water.jsx skips this body — the AUV flies itself
@@ -126,17 +127,20 @@ export function Auv({ level = 0 }) {
 		const dt = Math.min(delta, AUV.ctl.dtMax)
 		const k = keys.current
 		const m = rb.mass() || 1
+		// keys (digital) + touch stick (analog, auvInput.js), clamped to [-1, 1]
+		const stick = getStick()
+		const axis = (pos, neg, a) => Math.max(-1, Math.min(1, (k.has(pos) ? 1 : 0) - (k.has(neg) ? 1 : 0) + a))
+		const sy = axis('up', 'down', stick.y)
 
-		// vertical — keys ramp the setpoint, PID holds it (I term cancels gravity)
+		// vertical — input ramps the setpoint, PID holds it (I term cancels gravity)
 		const [lo, hi] = AUV.ctl.depthRange
-		if (k.has('up')) targetY.current += AUV.ctl.depthRate * dt
-		if (k.has('down')) targetY.current -= AUV.ctl.depthRate * dt
+		targetY.current += sy * AUV.ctl.depthRate * dt
 		targetY.current = Math.max(lo, Math.min(hi, targetY.current))
 		const fy = depthPid.step(targetY.current - rb.translation().y, dt)
 		rb.applyImpulse({ x: 0, y: fy * m * dt, z: 0 }, true)
 
 		// horizontal — direct thrust, x drifts free
-		const sx = (k.has('right') ? 1 : 0) - (k.has('left') ? 1 : 0)
+		const sx = axis('right', 'left', stick.x)
 		if (sx) rb.applyImpulse({ x: sx * AUV.ctl.surge * m * dt, y: 0, z: 0 }, true)
 
 		// heading — bank toward the horizontal input, PD hold, clamped authority

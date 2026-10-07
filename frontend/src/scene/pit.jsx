@@ -8,11 +8,14 @@ import { PIT, floorCenterY, visibleHalfWidth } from './config'
 
 export function Floor() {
 	const { halfW, halfH, halfD } = PIT.floor
+	useThree((s) => s.size) // re-render on resize: floorCenterY tracks the aspect-driven camera z
+	const y = floorCenterY()
 	return (
 		<RigidBody
+			key={Math.round(y * 100)} // re-seat the fixed body when y moves, same as Wall
 			type="fixed"
 			colliders={false}
-			position={[0, floorCenterY(), 0]}
+			position={[0, y, 0]}
 			friction={0.8}
 		>
 			<CuboidCollider args={[halfW, halfH, halfD]} />
