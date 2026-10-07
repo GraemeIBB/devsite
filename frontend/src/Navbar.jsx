@@ -15,10 +15,13 @@ function Navbar() {
 	useEffect(() => {
 		if(!modalBool) return;
 		function handleEsc(e) {
-			if (e.key === "Escape") setModalBool(false);
+			if (e.key === "Escape") {
+				setModalBool(false);
+				e.stopImmediatePropagation(); // capture phase: pages underneath (Devlog) never see it
+			}
 		}
-		window.addEventListener('keydown', handleEsc);
-		return () => window.removeEventListener('keydown', handleEsc)
+		window.addEventListener('keydown', handleEsc, true);
+		return () => window.removeEventListener('keydown', handleEsc, true)
 	}, [modalBool])
 	return(
 		<>
