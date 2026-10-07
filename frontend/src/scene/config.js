@@ -230,4 +230,7 @@ export const ASCII = {
   // buffer) for any cell below the okmr waterline — see SceneCanvas'
   // AsciiEffects (uWaterLineV) and asciiShader.js's uWaterTint.
   waterTint: "#bfe8ff",
+  // tone painted behind each lit cell's glyph (textgrid photo's IMG_FILL look):
+  // 0 = glyphs on black, 1 = solid colour. live-tunable: `fill <n>` in console
+  fill: 0.4,
 };

@@ -238,6 +238,7 @@ export function makeAsciiShader({
 	gain = 1.0,
 	dither = 0,
 	waterTint = "#ffffff",
+	fill = 0,
 } = {}) {
 	// atlas glyph cell must match the display cell (uCell, in device px) 1:1 —
 	// any mismatch forces a nearest-filtered minify/magnify step at sample time,
@@ -265,6 +266,9 @@ export function makeAsciiShader({
 				// 1 = all cells drawn, 0 = none. cells drop out on a stipple hash (whole-
 				// scene dither-out, same look as surfaceFade). driven by dither.js.
 				uFade: { value: 1 },
+			// cell colour behind the glyph strokes, as textgrid's IMG_FILL does for
+			// photos: 0 = black gaps (glyphs only), 1 = solid tone, no visible glyphs
+			uFill: { value: fill },
 		},
 		vertexShader: /* glsl */ `
 			varying vec2 vUv;
@@ -289,6 +293,7 @@ export function makeAsciiShader({
 			uniform vec3 uWaterTint;
 			uniform float uWaterLineV;
 				uniform float uFade;
+			uniform float uFill;
 			varying vec2 vUv;
 
 			float h21(vec2 p) { return fract(sin(dot(p, vec2(41.13, 289.7))) * 43758.5); }
@@ -344,7 +349,9 @@ export function makeAsciiShader({
 				vec2 atlasUv = vec2((gi + local.x) / uGlyphCount, local.y);
 				float g = texture2D(uGlyph, atlasUv).r;
 
-				gl_FragColor = vec4(tone * g, 1.0);
+				// lit cells get the tone behind the strokes too; bg cells stay black
+				float back = bg ? 0.0 : uFill;
+				gl_FragColor = vec4(tone * mix(back, 1.0, g), 1.0);
 			}
 		`,
 	};
