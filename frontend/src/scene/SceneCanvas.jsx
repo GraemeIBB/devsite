@@ -14,7 +14,8 @@ import { ASCII, CAMERA, okmrRightX, visibleHalfHeight, visibleHalfWidth } from '
 import { getAuvX } from './auvTrack'
 import { getWaterSurfaceY } from './waterLevel'
 import { useLive } from './liveConfig'
-import { setFocused } from './focus'
+import { setFocused, useHeld } from './focus'
+import { isDocPath } from '../docs'
 
 // window size + orientation. a portrait<->landscape flip remounts the active
 // page (below) so its letters re-lay for the new aspect.
@@ -84,8 +85,9 @@ function useFocused() {
 }
 
 // full-screen ascii pass: reads the world-normal G-buffer, shades it against a
-// sun down the camera's forward axis, draws glyphs.
-function AsciiEffects() {
+// sun down the camera's forward axis, draws glyphs. `idle` skips the render
+// (useFrame keeps ticking, so the clock and dither stay live).
+function AsciiEffects({ idle }) {
 	const pass = useRef()
 	const cssFade = useRef(1)
 	const [shader] = useState(() => makeAsciiShader(ASCII))
@@ -96,9 +98,10 @@ function AsciiEffects() {
 		pass.current?.uniforms.uResolution.value.set(size.width * dpr, size.height * dpr)
 	}, [size, viewport.dpr])
 
-	useFrame(() => {
+	useFrame((_, delta) => {
 		const u = pass.current?.uniforms
 		if (!u) return
+		dither.tick(delta)
 		camera.getWorldDirection(u.uSunDir.value)
 		u.uFade.value = dither.scene
 		if (cssFade.current !== dither.scene) {
@@ -115,7 +118,7 @@ function AsciiEffects() {
 
 	return (
 		// multisamping 0: MSAA averages normals at bevel edges and speckles the two-tone
-		<Effects disableGamma multisamping={0}>
+		<Effects disableGamma multisamping={0} disableRender={idle}>
 			<shaderPass ref={pass} args={[shader]} />
 		</Effects>
 	)
@@ -143,11 +146,11 @@ function PageScene({ path, portrait, navigate }) {
 	return <Page path={path} portrait={portrait} navigate={navigate} />
 }
 
-function World({ portrait, navigate, shownPath, exit, clear, focused }) {
+function World({ portrait, navigate, shownPath, exit, clear, focused, idle }) {
 	const gravity = useLive('gravity')
 	const Bounds = SCENE_BOUNDS[shownPath] ?? Pit
 	return (
-		<Physics gravity={exit?.gravity ?? gravity} paused={!focused}>
+		<Physics gravity={exit?.gravity ?? gravity} paused={!focused || idle}>
 			<DragController />
 			<PageScene
 				key={`${shownPath}|${portrait ? 'p' : 'l'}`}
@@ -171,6 +174,12 @@ export default function SceneCanvas() {
 	const navigate = useNavigate()
 	const { shownPath, exit, clear } = useSceneTransition()
 	const focused = useFocused()
+	// a doc page (docs/index.js) covers the screen with its own opaque canvas and
+	// its scene is empty: stop rendering + stepping it (a second full-screen GPU
+	// pass is what makes phones chug). any exit playing (leaving the doc) wakes it.
+	// or something outside the scene froze it (focus.js holds, e.g. FpsWarning)
+	const held = useHeld()
+	const idle = (isDocPath(shownPath) && !exit) || held
 
 	return (
 		<div style={{ position: 'fixed', inset: 0, background: '#000' }}>
@@ -189,10 +198,11 @@ export default function SceneCanvas() {
 						exit={exit}
 						clear={clear}
 						focused={focused}
+						idle={idle}
 					/>
 				</Suspense>
 				<CameraRig active={shownPath === '/okmr'} />
-				<AsciiEffects />
+				<AsciiEffects idle={idle} />
 			</Canvas>
 		</div>
 	)

@@ -1,6 +1,6 @@
 # Text grid spike
 
-Every glyph on this page is **one texel** in a data texture. The shader looks up the cell, picks a glyph from a font atlas and draws it. Scrolling is a single uniform. Try the wheel, arrows, `PgDn`.
+Every glyph on this page is **one texel** in a data texture. The shader looks up the cell, picks a glyph from a font atlas and draws it. Scrolling is a single uniform. Try the wheel, arrows, `PgDn`, drag to highlight, press ctrl+F to find, or `/` and `?` for nvim-style patterns (`\c`, `.`, `\+`, `\<word\>`), then `n` and `N`.
 
 ## Why
 
@@ -41,7 +41,7 @@ The atlas is rasterised at the device pixel ratio and sampled one to one with ne
 - Monospace only, so wrapping is exact but there is no proportional typography
 - Link ids are one byte, so at most 255 links per document
 - Only printable ascii for now, anything else becomes a question mark
-- Selection and find rely on the hidden DOM mirror, not the pixels
+- Selection and search live in the grid; the hidden DOM mirror is for screen readers only
 
 ### Next
 

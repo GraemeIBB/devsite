@@ -4,6 +4,7 @@ import WordScene from './WordScene'
 import OkmrScene from './OkmrScene'
 import drain from '../exits/drain'
 import { OkmrWalls } from '../pit'
+import { isDocPath } from '../../docs'
 
 // path -> scene component ({ path, portrait, navigate }). routes not listed fall
 // back to WordScene. add a designed page by dropping a file here + one entry.
@@ -25,9 +26,9 @@ export const SCENE_BOUNDS = {
 	'/okmr': OkmrWalls,
 }
 
-// devlog routes are text-grid pages (Devlog.jsx): the scene behind them is empty
+// doc routes (docs/index.js) are text-grid pages (DocPage.jsx): the scene behind them is empty
 const EmptyScene = () => null
 export const resolvePage = (path) =>
-	PAGES[path] ?? (path.startsWith('/devlog/') ? EmptyScene : WordScene)
+	PAGES[path] ?? (isDocPath(path) ? EmptyScene : WordScene)
 
 export { WordScene }

@@ -5,9 +5,13 @@ import { glyphIndex } from "./atlas";
 // packed 1 byte/cell each: glyph, style (palette idx), flags, link id.
 //
 // styles: 0 text 1 heading 2 dim 3 link 4 code 5 accent 6 quote
-// flags:  1 bold  2 underline  4 code-bg  8 scene-window
+// flags:  1 bold  2 underline  4 code-bg  8 scene-window  16 image (style = image id)
+// (32 selected / 64 find match / 128 current match are runtime overlay bits, TextGrid)
 export const STYLE = { text: 0, heading: 1, dim: 2, link: 3, code: 4, accent: 5, quote: 6 };
-export const FLAG = { bold: 1, underline: 2, codeBg: 4, window: 8 };
+export const FLAG = { bold: 1, underline: 2, codeBg: 4, window: 8, image: 16 };
+// `![alt](src) rows` — a photo drawn through the luminance ramp. ids index one
+// shared texture atlas (TextGrid) + shader uniform array, so a doc gets this many.
+export const MAX_IMAGES = 8;
 
 // block registry: parse rules are ordered, layout fns keyed by block.type.
 // add a block type = one entry in each. (layout fns get a Writer, see below)
@@ -36,7 +40,7 @@ export const plain = (raw) => parseInline(raw).map((a) => a.ch).join("");
 
 const isBullet = (l) => /^\s*[-*]\s+/.test(l);
 const isQuote = (l) => /^>\s?/.test(l);
-const isStart = (l) => /^(```|:::|#{1,3}\s|---+\s*$)/.test(l) || isBullet(l) || isQuote(l);
+const isStart = (l) => /^(```|:::|!\[|#{1,3}\s|---+\s*$)/.test(l) || isBullet(l) || isQuote(l);
 
 export function parse(src) {
 	const lines = src.replace(/\r/g, "").split("\n");
@@ -52,6 +56,9 @@ export function parse(src) {
 			blocks.push({ type: "code", lines: code });
 		} else if ((m = l.match(/^:::window\s*(\d+)?/))) {
 			blocks.push({ type: "window", rows: +(m[1] || 10) });
+			i++;
+		} else if ((m = l.match(/^!\[([^\]]*)\]\(([^)]+)\)\s*(\d+)?\s*$/))) {
+			blocks.push({ type: "img", alt: m[1], src: m[2], rows: +(m[3] || 16) });
 			i++;
 		} else if (/^---+\s*$/.test(l)) {
 			blocks.push({ type: "hr" });
@@ -116,6 +123,7 @@ class Writer {
 		this.flags = [];
 		this.link = [];
 		this.links = [];
+		this.images = [];
 	}
 	ensure(row) {
 		while (this.rows <= row) {
@@ -195,6 +203,13 @@ const LAYOUT = {
 		for (let r = 0; r < b.rows; r++) w.fill(row + r, 0, w.cols, FLAG.window);
 		return b.rows;
 	},
+	// reserves the box; TextGrid fits the image inside once it knows its aspect
+	img(w, b, row) {
+		const id = w.images.push({ src: b.src, row, rows: b.rows, cols: w.cols }) - 1;
+		if (id >= MAX_IMAGES) console.warn(`textgrid: more than ${MAX_IMAGES} images, ${b.src} skipped`);
+		for (let r = 0; r < b.rows; r++) w.fill(row + r, 0, w.cols, id < MAX_IMAGES ? FLAG.image : 0, id < MAX_IMAGES ? id : 0);
+		return b.rows;
+	},
 	hr(w, b, row) {
 		w.text(row, 0, "-".repeat(w.cols), STYLE.dim);
 		return 1;
@@ -209,7 +224,7 @@ export function layout(blocks, cols) {
 	}
 	w.ensure(row); // bottom pad
 	const u8 = (a) => Uint8Array.from(a);
-	return { cols, rows: w.rows, glyph: u8(w.glyph), style: u8(w.style), flags: u8(w.flags), link: u8(w.link), links: w.links };
+	return { cols, rows: w.rows, glyph: u8(w.glyph), style: u8(w.style), flags: u8(w.flags), link: u8(w.link), links: w.links, images: w.images };
 }
 
 // pack into RGBA8: r glyph, g style, b flags, a link id

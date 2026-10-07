@@ -1,0 +1,13 @@
+services:
+  devlog:
+    build:
+      context: .
+      dockerfile: dockerfile
+    image: devlog
+    ports:
+      - "5000:5000" # backend (frontend calls hostname:5000)
+      - "5173:5173" # frontend
+    env_file: backend/.env
+    volumes:
+      - ./backend/data:/app/backend/data # persist stats/features/cloned repos
+    restart: unless-stopped
