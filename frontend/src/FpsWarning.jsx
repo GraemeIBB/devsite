@@ -1,6 +1,5 @@
-import './FpsWarning.css'
 import { useState, useEffect } from 'react'
-import { setHold } from './scene/focus'
+import AsciiModal from './AsciiModal'
 
 // one-time popup for devices capped at ~30fps (iOS Low Power Mode caps rAF to 30).
 // skips startup hitches, takes median rAF interval, shows if fps < THRESHOLD.
@@ -42,24 +41,6 @@ function FpsWarning() {
 		return () => { dead = true }
 	}, [])
 
-	// freeze the scene while open
-	useEffect(() => {
-		setHold('fpsWarn', show)
-		return () => setHold('fpsWarn', false)
-	}, [show])
-
-	useEffect(() => {
-		if (!show) return
-		function onKey(e) {
-			if (e.key === 'Escape' || e.key === 'Enter') {
-				dismiss()
-				e.stopImmediatePropagation()
-			}
-		}
-		window.addEventListener('keydown', onKey, true)
-		return () => window.removeEventListener('keydown', onKey, true)
-	}, [show])
-
 	function dismiss() {
 		setShow(false)
 		try { sessionStorage.setItem(KEY, '1') } catch {}
@@ -67,21 +48,13 @@ function FpsWarning() {
 
 	if (!show) return null
 	return (
-		<div className="fpsw-backdrop" role="dialog" aria-modal="true" aria-labelledby="fpsw-title">
-			<div className="fpsw-box">
-				<div className="fpsw-edge"><span>+</span><span className="fpsw-h" /><span>+</span></div>
-				<div className="fpsw-mid">
-					<span className="fpsw-v" />
-					<div className="fpsw-body">
-						<div id="fpsw-title" className="fpsw-title">[ Looks like you have low framerate! Chances are you're on low battery mode. Once you turn that off, the website should look much better. ]</div>
-						<p>{/* TODO explanation text */}</p>
-						<button className="fpsw-ok" onClick={dismiss} autoFocus>[ OK ]</button>
-					</div>
-					<span className="fpsw-v" />
-				</div>
-				<div className="fpsw-edge"><span>+</span><span className="fpsw-h" /><span>+</span></div>
-			</div>
-		</div>
+		<AsciiModal
+			title="[ Looks like you have low framerate! Chances are you're on low battery mode. Once you turn that off, the website should look much better. ]"
+			onButton={dismiss}
+			hold="fpsWarn"
+		>
+			<p>{/* TODO explanation text */}</p>
+		</AsciiModal>
 	)
 }
 export default FpsWarning

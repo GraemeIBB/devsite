@@ -10,12 +10,13 @@ import ClearWatch from './ClearWatch'
 import { resolvePage, SCENE_BOUNDS } from './pages'
 import { dither } from './dither'
 import { useSceneTransition } from './transition'
-import { ASCII, CAMERA, okmrRightX, visibleHalfHeight, visibleHalfWidth } from './config'
+import { ASCII, CAMERA, cameraZ, okmrRightX, setAspect, visibleHalfHeight, visibleHalfWidth } from './config'
 import { getAuvX } from './auvTrack'
 import { getWaterSurfaceY } from './waterLevel'
 import { useLive } from './liveConfig'
 import { setFocused, useHeld } from './focus'
 import { isDocPath } from '../docs'
+import Joystick, { JoystickMesh, isTouch } from './Joystick'
 
 // window size + orientation. a portrait<->landscape flip remounts the active
 // page (below) so its letters re-lay for the new aspect.
@@ -142,6 +143,7 @@ function CameraRig({ active }) {
 		const rightBound = Math.max(0, okmrRightX(size) - visibleHalfWidth(size))
 		const target = active ? Math.min(Math.max(getAuvX(), 0), rightBound) : 0
 		camera.position.x += (target - camera.position.x) * Math.min(1, delta * CAMERA.followLerp)
+		camera.position.z = cameraZ() // aspect-driven dolly (config.js), snaps on resize
 	})
 	return null
 }
@@ -175,6 +177,8 @@ function World({ portrait, navigate, shownPath, exit, clear, focused, idle }) {
 // exit (exits/*) then swap the page; the canvas never unmounts.
 export default function SceneCanvas() {
 	const { w, h, portrait } = useViewport()
+	// before anything below renders: floor/bounds/etc. read visibleHalfHeight()
+	setAspect(w / h)
 	// router reads live out here — context does not cross into <Canvas>
 	const navigate = useNavigate()
 	const { shownPath, exit, clear } = useSceneTransition()
@@ -185,13 +189,16 @@ export default function SceneCanvas() {
 	// or something outside the scene froze it (focus.js holds, e.g. FpsWarning)
 	const held = useHeld()
 	const idle = (isDocPath(shownPath) && !exit) || held
+	// touch flight for the AUV; landscape only (portrait has no room)
+	const [touch] = useState(isTouch)
+	const stick = touch && shownPath === '/okmr' && !exit && !portrait
 
 	return (
 		<div style={{ position: 'fixed', inset: 0, background: '#000' }}>
 			<Canvas
 				style={{ width: w, height: h }} // locked to the window box
 				resize={{ scroll: false }}
-				camera={{ position: [0, 0, CAMERA.z], fov: CAMERA.fov }}
+				camera={{ position: [0, 0, cameraZ()], fov: CAMERA.fov }}
 				dpr={[1, 2]}
 				onCreated={({ gl }) => gl.setClearAlpha(0)}
 			>
@@ -207,8 +214,10 @@ export default function SceneCanvas() {
 					/>
 				</Suspense>
 				<CameraRig active={shownPath === '/okmr'} />
+				{stick && <JoystickMesh />}
 				<AsciiEffects idle={idle} />
 			</Canvas>
+			{stick && <Joystick />}
 		</div>
 	)
 }
